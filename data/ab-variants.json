@@ -1,0 +1,7 @@
+{
+  "homepage_hero_test": {
+    "cookieName": "ab_homepage_hero_variant",
+    "cookieValue": "variant_b",
+    "url": "https://imagen-ai.com/"
+  }
+}
