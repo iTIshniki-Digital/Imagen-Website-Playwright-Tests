@@ -1,8 +1,14 @@
 {
   "urlsToCheck": [
-    "https://imagen-ai.com/",
-    "https://imagen-ai.com/pricing",
-    "https://imagen-ai.com/about",
-    "https://imagen-ai.com/blog"
+    { "name": "Culling", "path": "/culling/" },
+    { "name": "Editing", "path": "/editing/" },
+    { "name": "Cloud Storage", "path": "/cloud-storage/" },
+    { "name": "AI Tools", "path": "/ai-photo-editing-tools/" },
+    { "name": "Pricing", "path": "/pricing/" },
+    { "name": "Community", "path": "/community/" },
+    { "name": "Blog", "path": "/blog/" },
+    { "name": "About", "path": "/about/" },
+    { "name": "Business", "path": "/business/" },
+    { "name": "Video", "path": "/video/" }
   ]
 }

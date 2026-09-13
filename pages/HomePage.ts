@@ -5,26 +5,34 @@ export class HomePage extends BasePage {
   // Сайт на Elementor — CSS-классы вида "elementor-element-3f8a1b2" нестабильны
   // и меняются при каждой правке в редакторе, поэтому НЕ используем их как локаторы.
   // getByRole ищет по семантике (роль + видимый текст), это переживает верстку.
-  readonly getStartedButton: Locator;
+
+  // Проверено вживую: на странице 3 ссылки с текстом "Get Started"/"Get started" —
+  // одна внутри <header> (кнопка в шапке), две вне его (первая по DOM-порядку —
+  // hero-секция). У всех одинаковые generic-классы Elementor, поэтому различаем
+  // по расположению относительно <header>, а не по классам.
+  readonly navGetStartedButton: Locator;
+  readonly heroGetStartedButton: Locator;
 
   constructor(page: Page) {
     super(page);
 
-    // Проверено вживую: на странице сейчас 3 ссылки с текстом "Get Started" /
-    // "Get started" (шапка, hero-секция и ещё один блок) — у всех одинаковые
-    // generic-классы Elementor (elementor-button elementor-size-sm), различить
-    // их по семантике нельзя. Берём первую (обычно это CTA в шапке — самый
-    // стабильный, присутствует на всех страницах сайта).
-    // TODO(dev-team): попросить добавить data-testid на конкретную hero-кнопку,
-    // если тест должен проверять именно её, а не "любую" Get Started.
-    this.getStartedButton = page.getByRole('link', { name: /get started/i }).first();
+    this.navGetStartedButton = page.locator('header').getByRole('link', { name: /get started/i }).first();
+
+    this.heroGetStartedButton = page
+      .getByRole('link', { name: /get started/i })
+      .filter({ hasNot: page.locator('xpath=ancestor::header') })
+      .first();
   }
 
   async goto(): Promise<void> {
     await this.page.goto('/');
   }
 
-  async clickGetStarted(): Promise<void> {
-    await this.getStartedButton.click();
+  async clickNavGetStarted(): Promise<void> {
+    await this.navGetStartedButton.click();
+  }
+
+  async clickHeroGetStarted(): Promise<void> {
+    await this.heroGetStartedButton.click();
   }
 }

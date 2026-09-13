@@ -1,3 +1,12 @@
 {
-  "locales": ["en", "es", "fr", "de", "ja"]
+  "locales": [
+    { "code": "en", "path": "/" },
+    { "code": "br", "path": "/br/" },
+    { "code": "es", "path": "/es/" },
+    { "code": "kr", "path": "/kr/" },
+    { "code": "fr", "path": "/fr/" },
+    { "code": "de", "path": "/de/" },
+    { "code": "ja", "path": "/ja/" },
+    { "code": "it", "path": "/it/" }
+  ]
 }
