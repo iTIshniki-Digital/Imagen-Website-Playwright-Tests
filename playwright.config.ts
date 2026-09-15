@@ -32,7 +32,11 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  // 'line' печатает результат каждого теста СРАЗУ по завершении — в логах
+  // GitHub Actions это критично для диагностики: default-репортер там
+  // буферизует прогресс одним куском ближе к концу прогона, из-за чего
+  // непонятно, что происходит, пока весь job не закончится.
+  reporter: process.env.CI ? [['html'], ['line']] : 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
