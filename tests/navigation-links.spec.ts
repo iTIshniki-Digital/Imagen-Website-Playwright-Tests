@@ -1,15 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { HomePage } from '../pages/HomePage';
 import { NavigationPage } from '../pages/NavigationPage';
 
 test('every first-party header/footer link responds without 4xx/5xx', async ({ page, browserName }) => {
-  // ВРЕМЕННО ОТКЛЮЧЕНО: подтверждено вживую (2026-09-13), что ~40 последовательных
-  // переходов подряд получают 403 от Cloudflare rate-limit на стороне клиента —
-  // это не баг теста, а ограничение защиты сайта. Нужно попросить клиента
-  // настроить allowlist/bypass для QA-трафика (см. обсуждение с пользователем),
-  // после чего снять этот skip.
-  test.skip(true, 'Заблокировано Cloudflare rate-limit — ждём allowlist/bypass от клиента для CI-трафика.');
-
   // HTTP-статус ссылки не зависит от движка рендеринга — гоняем один раз,
   // чтобы не утраивать нагрузку на rate-limit защиты сайта (Cloudflare).
   test.skip(browserName !== 'chromium', 'Проверка статус-кодов запускается только на chromium.');

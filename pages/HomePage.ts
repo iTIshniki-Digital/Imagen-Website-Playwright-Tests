@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 export class HomePage extends BasePage {
@@ -33,6 +33,13 @@ export class HomePage extends BasePage {
   }
 
   async clickHeroGetStarted(): Promise<void> {
+    // Явная проверка с понятным сообщением вместо голого таймаута локатора:
+    // клиент регулярно выпускает A/B-тесты, и hero-CTA — то, что меняется
+    // первым. Если её нет, это важный сигнал, а не "тест завис".
+    await expect(
+      this.heroGetStartedButton,
+      'Hero "Get Started" не найдена на главной — возможно, активный A/B-тест или изменение вёрстки клиентом'
+    ).toBeVisible({ timeout: 10000 });
     await this.heroGetStartedButton.click();
   }
 }

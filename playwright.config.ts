@@ -4,9 +4,19 @@ import { defineConfig, devices } from '@playwright/test';
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
  */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
+import dotenv from 'dotenv';
+import path from 'path';
+// quiet: true — у dotenv v17 в консоль по умолчанию летит рандомная
+// самореклама сторонних продуктов автора пакета при каждом запуске (см.
+// node_modules/dotenv/lib/main.js) — не нужно засорять этим логи CI.
+dotenv.config({ path: path.resolve(__dirname, '.env'), quiet: true });
+
+if (!process.env.E2E_BYPASS_TOKEN) {
+  // Без этого токена Cloudflare на стороне клиента вернёт 403 почти на
+  // каждый запрос (см. правило x-e2e-bypass в Cloudflare WAF). Локально —
+  // положите значение в .env (см. .env.example), в CI — в GitHub Secrets.
+  console.warn('[playwright.config] E2E_BYPASS_TOKEN не задан — запросы к сайту, скорее всего, будут блокироваться Cloudflare.');
+}
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -30,6 +40,11 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+
+    /* Cloudflare bypass-заголовок добавляется НЕ здесь (extraHTTPHeaders
+     * улетел бы на все домены, включая сторонние API самого сайта, и ломал
+     * бы им CORS), а точечно — только на запросы к доменам клиента — через
+     * кастомный fixture в tests/fixtures.ts (page.route + фильтр по хосту). */
   },
 
   /* Configure projects for major browsers */

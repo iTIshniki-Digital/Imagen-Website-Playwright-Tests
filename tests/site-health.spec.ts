@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { BasePage } from '../pages/BasePage';
 import urlSweepList from '../data/url-sweep-list.json';
 
