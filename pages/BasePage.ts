@@ -17,6 +17,13 @@ const IGNORED_PATTERNS: RegExp[] = [
   /ads-twitter\.com|analytics\.x\.com/i,
   /pinterest\.com\/ct|ct\.pinterest\.com/i,
   /reddit\.com\/rp\.gif|alb\.reddit\.com/i,
+  // Firefox/WebKit (не Chromium) логируют это как console error, когда
+  // рекламный пиксель (Facebook _fbp, TikTok _tt_enable_cookie и т.п.)
+  // пытается выставить cookie с несовпадающим доменом. Это поведение
+  // самого стороннего скрипта, а не баг сайта. Не завязываемся на тип
+  // кавычек (браузеры используют разные — прямые/фигурные) и не
+  // перечисляем имена всех возможных трекеров.
+  /has been rejected for invalid domain/i,
 ];
 
 // Экспортируем — тем же списком фильтруем не только console/network,
