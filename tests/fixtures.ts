@@ -1,33 +1,39 @@
 import { test as base } from '@playwright/test';
-import { FIRST_PARTY_HOSTS } from '../pages/domains';
+import { isFirstPartyUrl } from '../pages/domains';
 
-// Расширяем стандартный `page` fixture: добавляем Cloudflare bypass-заголовок
-// ТОЛЬКО на запросы к доменам клиента. Два важных момента:
+// Расширяем стандартный `page` fixture Cloudflare bypass-заголовком.
 //
-// 1) Если добавить заголовок глобально через playwright.config
-//    `use.extraHTTPHeaders`, он улетит и на сторонние API (например, geo-IP
-//    сервис, который дёргает сам сайт) — кастомный заголовок на чужом домене
-//    превращает простой запрос в CORS preflight, который эти сервисы не
-//    ждут, и роняет их с ошибкой.
-//
-// 2) Перехват ОДНИМ хендлером на "**/*" (с JS-фильтром по хосту внутри)
-//    вызывает Node-колбэк на КАЖДЫЙ запрос страницы (десятки: трекеры,
-//    шрифты, картинки) — в CI это давало нестабильные ERR_ABORTED на самой
-//    навигации. Регистрируем route ПО ПАТТЕРНУ ДОМЕНА для каждого хоста
-//    клиента отдельно — Playwright матчит URL нативно и вызывает наш код
-//    только для реально нужных запросов, остальное вообще не долетает до JS.
+// История правок (важно для будущих изменений):
+// 1) Ставили заголовок глобально через playwright.config `use.extraHTTPHeaders`
+//    — улетал и на сторонние API (geo-IP сервис самого сайта), ломал им CORS.
+// 2) Перешли на `page.route('**/*', ...)` с JS-фильтром по хосту внутри —
+//    в CI (не локально!) это давало нестабильный net::ERR_ABORTED прямо на
+//    обычной навигации (page.goto('/')).
+// 3) Сузили route до паттернов по доменам клиента — тот же ERR_ABORTED
+//    остался, потому что главная навигация ВСЕГДА идёт на домен клиента,
+//    то есть всё равно перехватывалась.
+// Вывод: нестабилен именно `route.continue({ headers })` С ИЗМЕНЁННЫМИ
+// заголовками на main-frame навигации. Поэтому теперь заголовок ставится
+// нативно через `context.setExtraHTTPHeaders()` (без CDP-перехвата вообще),
+// а route используется только в обратную сторону — ВЫРЕЗАТЬ заголовок
+// перед сторонними доменами (это не критичная main-frame навигация, а
+// обычный sub-resource запрос, там модификация headers через route стабильна).
 export const test = base.extend<{}>({
-  page: async ({ page }, use) => {
+  page: async ({ page, context }, use) => {
     const token = process.env.E2E_BYPASS_TOKEN;
 
     if (token) {
-      for (const host of FIRST_PARTY_HOSTS) {
-        await page.route(`https://${host}/**`, async (route) => {
-          await route.continue({
-            headers: { ...route.request().headers(), 'x-e2e-bypass': token },
-          });
-        });
-      }
+      await context.setExtraHTTPHeaders({ 'x-e2e-bypass': token });
+
+      await page.route('**/*', async (route) => {
+        if (isFirstPartyUrl(route.request().url())) {
+          await route.continue();
+          return;
+        }
+        const headers = route.request().headers();
+        delete headers['x-e2e-bypass'];
+        await route.continue({ headers });
+      });
     }
 
     await use(page);
