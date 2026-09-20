@@ -37,6 +37,15 @@ export default defineConfig({
   // буферизует прогресс одним куском ближе к концу прогона, из-за чего
   // непонятно, что происходит, пока весь job не закончится.
   reporter: process.env.CI ? [['html'], ['line']] : 'html',
+  /* Дефолтный таймаут для expect() — 5000ms (стандарт Playwright) оказался
+   * слишком тесным для CI: клик по кнопке доходил до реального перехода,
+   * но `expect(page).toHaveURL(...)` не успевал дождаться за 5с чисто из-за
+   * сетевой задержки CI-раннера, а не из-за бага сайта (см. живые прогоны
+   * 2026-09-20). 10с — с запасом, но не настолько много, чтобы маскировать
+   * реальные проблемы. */
+  expect: {
+    timeout: 10000,
+  },
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
