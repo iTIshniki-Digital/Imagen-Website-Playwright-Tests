@@ -60,5 +60,7 @@ jobs:
       if: ${{ !cancelled() }}
       run: node scripts/upload-report-to-drive.js
       env:
-        GDRIVE_SA_KEY: ${{ secrets.GDRIVE_SA_KEY }}
+        GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+        GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+        GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}

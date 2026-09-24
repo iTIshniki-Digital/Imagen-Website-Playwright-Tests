@@ -5,19 +5,25 @@ const REPORT_ZIP = 'playwright-report.zip';
 const RETENTION_DAYS = 7;
 
 async function main() {
-  const rawKey = process.env.GDRIVE_SA_KEY;
+  const clientId = process.env.GDRIVE_CLIENT_ID;
+  const clientSecret = process.env.GDRIVE_CLIENT_SECRET;
+  const refreshToken = process.env.GDRIVE_REFRESH_TOKEN;
   const folderId = process.env.GDRIVE_FOLDER_ID;
 
-  if (!rawKey || !folderId) {
-    console.error('GDRIVE_SA_KEY или GDRIVE_FOLDER_ID не заданы — добавьте их в GitHub Secrets.');
+  if (!clientId || !clientSecret || !refreshToken || !folderId) {
+    console.error('GDRIVE_CLIENT_ID / GDRIVE_CLIENT_SECRET / GDRIVE_REFRESH_TOKEN / GDRIVE_FOLDER_ID не заданы — добавьте их в GitHub Secrets.');
     process.exit(1);
   }
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(rawKey),
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  const drive = google.drive({ version: 'v3', auth });
+  // Сервисные аккаунты не имеют собственной квоты хранилища в Google Drive
+  // ("Service Accounts do not have storage quota") — без Google Workspace
+  // (Shared Drives) загрузка файла сервисным аккаунтом падает с 403, даже
+  // если папка расшарена на него как Editor. Поэтому тут OAuth от имени
+  // обычного пользователя (см. scripts/get-gdrive-refresh-token.js) —
+  // файл считается обычной загрузкой в личный Google Drive этого юзера.
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
   await deleteOldReports(drive, folderId);
   await uploadReport(drive, folderId);
