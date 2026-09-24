@@ -1,27 +1,31 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { TEST_EMAIL } from './testData';
 
 export class HomePage extends BasePage {
   // Сайт на Elementor — CSS-классы вида "elementor-element-3f8a1b2" нестабильны
   // и меняются при каждой правке в редакторе, поэтому НЕ используем их как локаторы.
   // getByRole ищет по семантике (роль + видимый текст), это переживает верстку.
-
-  // Проверено вживую: на странице 3 ссылки с текстом "Get Started"/"Get started" —
-  // одна внутри <header> (кнопка в шапке), две вне его (первая по DOM-порядку —
-  // hero-секция). У всех одинаковые generic-классы Elementor, поэтому различаем
-  // по расположению относительно <header>, а не по классам.
   readonly navGetStartedButton: Locator;
-  readonly heroGetStartedButton: Locator;
+
+  // Проверено вживую 2026-09-24: hero-CTA — это НЕ отдельная ссылка, а
+  // submit-кнопка внутри формы id="go_to_step2_new_hp" (id задан вручную в
+  // Elementor, семантический и стабильный). Без заполненного email-поля
+  // кнопка ничего не делает. Старый локатор искал только <a>-ссылки и
+  // поэтому никогда не мог найти эту кнопку — вероятно, этим объясняется
+  // прошлый отчёт "hero CTA пропала", а не реальным багом сайта.
+  readonly heroForm: Locator;
+  readonly heroEmailInput: Locator;
+  readonly heroSubmitButton: Locator;
 
   constructor(page: Page) {
     super(page);
 
     this.navGetStartedButton = page.locator('header').getByRole('link', { name: /get started/i }).first();
 
-    this.heroGetStartedButton = page
-      .getByRole('link', { name: /get started/i })
-      .filter({ hasNot: page.locator('xpath=ancestor::header') })
-      .first();
+    this.heroForm = page.locator('#go_to_step2_new_hp');
+    this.heroEmailInput = this.heroForm.locator('#form-field-email');
+    this.heroSubmitButton = this.heroForm.getByRole('button', { name: /get started/i });
   }
 
   async goto(): Promise<void> {
@@ -32,14 +36,14 @@ export class HomePage extends BasePage {
     await this.navGetStartedButton.click();
   }
 
-  async clickHeroGetStarted(): Promise<void> {
-    // Явная проверка с понятным сообщением вместо голого таймаута локатора:
-    // клиент регулярно выпускает A/B-тесты, и hero-CTA — то, что меняется
-    // первым. Если её нет, это важный сигнал, а не "тест завис".
+  async submitHeroEmail(email: string = TEST_EMAIL): Promise<void> {
     await expect(
-      this.heroGetStartedButton,
-      'Hero "Get Started" не найдена на главной — возможно, активный A/B-тест или изменение вёрстки клиентом'
+      this.heroEmailInput,
+      'Email-поле hero-формы не найдено на главной — возможно, изменилась вёрстка формы'
     ).toBeVisible({ timeout: 10000 });
-    await this.heroGetStartedButton.click();
+    await this.heroEmailInput.fill(email);
+    // form_fields[invalid] — honeypot-поле Elementor против ботов: если его
+    // заполнить, форма молча отклонит отправку. Намеренно его не трогаем.
+    await this.heroSubmitButton.click();
   }
 }

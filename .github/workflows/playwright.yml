@@ -3,7 +3,23 @@ on:
   # Только вручную — по требованию 2026-09-24: раньше тут были push/PR/
   # schedule (3 раза в день), но авто-прогоны заливали отчёты на GitHub
   # без участия пользователя и забивали лимит хранилища артефактов.
+  # inputs ниже доступны и в форме "Run workflow" на GitHub, и через
+  # GitHub API (POST .../actions/workflows/playwright.yml/dispatches) —
+  # тем же способом сайт-форма сможет запускать прогон с параметрами.
   workflow_dispatch:
+    inputs:
+      browsers:
+        description: 'Браузеры через запятую: chromium, firefox, webkit'
+        required: false
+        default: 'chromium'
+      raw_client_cookies:
+        description: 'Cookie-строка для A/B-варианта: "name1=value1; name2=value2"'
+        required: false
+        default: ''
+      spec_files:
+        description: 'Конкретные spec-файлы через пробел (пусто = весь набор), напр. tests/homepage.spec.ts'
+        required: false
+        default: ''
 jobs:
   test:
     timeout-minutes: 60
@@ -18,9 +34,22 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test
       env:
         E2E_BYPASS_TOKEN: ${{ secrets.E2E_BYPASS_TOKEN }}
+        RAW_CLIENT_COOKIES: ${{ inputs.raw_client_cookies }}
+        BROWSERS: ${{ inputs.browsers }}
+        SPEC_FILES: ${{ inputs.spec_files }}
+      # Значения из inputs идут через env, а не через ${{ }} прямо в скрипт —
+      # это не даёт содержимому полей сломать/подменить команду (важно,
+      # т.к. в будущем эти поля будет заполнять форма на сайте, а не только
+      # человек в GitHub UI).
+      run: |
+        PROJECT_FLAGS=""
+        IFS=',' read -ra BROWSER_LIST <<< "$BROWSERS"
+        for b in "${BROWSER_LIST[@]}"; do
+          PROJECT_FLAGS="$PROJECT_FLAGS --project=$(echo "$b" | xargs)"
+        done
+        npx playwright test $PROJECT_FLAGS $SPEC_FILES
     - name: Zip report
       if: ${{ !cancelled() }}
       run: zip -r playwright-report.zip playwright-report/

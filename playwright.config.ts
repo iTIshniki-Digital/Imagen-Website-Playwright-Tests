@@ -54,6 +54,11 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
+    /* Скриншот в момент падения теста — попадает прямо в HTML-отчёт как
+     * вложение к тесту, не нужно открывать trace viewer, чтобы увидеть,
+     * что было на экране. */
+    screenshot: 'only-on-failure',
+
     /* Cloudflare bypass-заголовок добавляется НЕ здесь (extraHTTPHeaders
      * улетел бы на все домены, включая сторонние API самого сайта, и ломал
      * бы им CORS), а точечно — только на запросы к доменам клиента — через

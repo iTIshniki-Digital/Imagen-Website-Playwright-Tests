@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import { HomePage } from '../pages/HomePage';
+import { TEST_EMAIL } from '../pages/testData';
 
 test.describe('Homepage', () => {
   test('loads within ~5s with no console errors and no failed requests', async ({ page }) => {
@@ -22,13 +23,14 @@ test.describe('Homepage', () => {
     expect(issues.failedRequests, `Проваленные запросы:\n${issues.failedRequests.join('\n')}`).toEqual([]);
   });
 
-  test('hero "Get Started" redirects to /step-2/', async ({ page }) => {
+  test('hero form redirects to /step-2/ with email prefilled after submit', async ({ page }) => {
     const homePage = new HomePage(page);
     await homePage.goto();
 
-    await homePage.clickHeroGetStarted();
+    await homePage.submitHeroEmail();
 
     await expect(page).toHaveURL(/\/step-2\/?$/);
+    await expect(page.locator('input[type="email"], input[name*="email" i]').first()).toHaveValue(TEST_EMAIL);
   });
 
   test('nav "Get Started" redirects to /step-2/', async ({ page }) => {

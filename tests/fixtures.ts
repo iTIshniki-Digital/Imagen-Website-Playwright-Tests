@@ -18,6 +18,25 @@ import { isFirstPartyUrl } from '../pages/domains';
 // а route используется только в обратную сторону — ВЫРЕЗАТЬ заголовок
 // перед сторонними доменами (это не критичная main-frame навигация, а
 // обычный sub-resource запрос, там модификация headers через route стабильна).
+// RAW_CLIENT_COOKIES — сырая строка вида Cookie-заголовка браузера
+// ("name1=value1; name2=value2"), которую клиентская сторона передаёт для
+// прогона конкретного варианта A/B-теста. Формат согласован с реальным
+// примером клиента ("Example of what your backend executes:
+// RAW_CLIENT_COOKIES=... npx playwright test").
+function parseRawCookies(raw: string): { name: string; value: string }[] {
+  return raw
+    .split(';')
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const eqIndex = pair.indexOf('=');
+      return {
+        name: pair.slice(0, eqIndex).trim(),
+        value: pair.slice(eqIndex + 1).trim(),
+      };
+    });
+}
+
 export const test = base.extend<{}>({
   page: async ({ page, context }, use) => {
     const token = process.env.E2E_BYPASS_TOKEN;
@@ -34,6 +53,16 @@ export const test = base.extend<{}>({
         delete headers['x-e2e-bypass'];
         await route.continue({ headers });
       });
+    }
+
+    const rawCookies = process.env.RAW_CLIENT_COOKIES;
+    if (rawCookies) {
+      const cookies = parseRawCookies(rawCookies).map((cookie) => ({
+        ...cookie,
+        domain: '.imagen-ai.com',
+        path: '/',
+      }));
+      await context.addCookies(cookies);
     }
 
     await use(page);
