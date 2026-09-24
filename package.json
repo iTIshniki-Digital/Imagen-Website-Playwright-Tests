@@ -11,5 +11,8 @@
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
     "dotenv": "^17.4.2"
+  },
+  "dependencies": {
+    "googleapis": "^178.0.0"
   }
 }

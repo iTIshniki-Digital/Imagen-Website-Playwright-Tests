@@ -1,19 +1,9 @@
 name: Playwright Tests
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  # Только вручную — по требованию 2026-09-24: раньше тут были push/PR/
+  # schedule (3 раза в день), но авто-прогоны заливали отчёты на GitHub
+  # без участия пользователя и забивали лимит хранилища артефактов.
   workflow_dispatch:
-  schedule:
-    # Время в UTC. 3 раза в день: 06:00, 14:00, 22:00 UTC.
-    # Возвращено 2026-09-16: подтверждено живым прогоном (run 35088163436),
-    # что Cloudflare bypass (E2E_BYPASS_TOKEN) работает и CI больше не
-    # ловит 403 — прогон занимает штатные ~9 минут, падают только 2
-    # известных реальных бага сайта, а не инфраструктура.
-    - cron: '0 6 * * *'
-    - cron: '0 14 * * *'
-    - cron: '0 22 * * *'
 jobs:
   test:
     timeout-minutes: 60
@@ -31,13 +21,15 @@ jobs:
       run: npx playwright test
       env:
         E2E_BYPASS_TOKEN: ${{ secrets.E2E_BYPASS_TOKEN }}
-    - uses: actions/upload-artifact@v4
+    - name: Zip report
       if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        # 30 дней при 3 прогонах/день быстро забивали лимит хранилища
-        # Actions (500МБ на приватный репо на free-плане) — упавшие тесты
-        # сохраняют trace (скриншоты/сеть) на каждый ретрай, это тяжело.
-        # 7 дней — с запасом на неделю отладки, но без переполнения квоты.
-        retention-days: 7
+      run: zip -r playwright-report.zip playwright-report/
+    - name: Upload report to Google Drive
+      # Отчёты больше не хранятся в GitHub Actions artifacts (там была
+      # квота 500МБ, см. историю retention-days) — вместо этого улетают
+      # в Google Drive, скрипт сам чистит там всё старше 7 дней.
+      if: ${{ !cancelled() }}
+      run: node scripts/upload-report-to-drive.js
+      env:
+        GDRIVE_SA_KEY: ${{ secrets.GDRIVE_SA_KEY }}
+        GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
