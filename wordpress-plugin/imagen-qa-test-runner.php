@@ -15,12 +15,74 @@ define('IMAGEN_QA_BRANCH', 'main');
 
 add_shortcode('imagen_qa_test_runner', 'imagen_qa_render_form');
 add_action('wp_enqueue_scripts', 'imagen_qa_enqueue_assets');
+add_action('admin_menu', 'imagen_qa_add_settings_page');
 // Только wp_ajax_ (без _nopriv_) — обработчик доступен исключительно
 // залогиненным пользователям WordPress. Заведи клиенту отдельный аккаунт,
 // чтобы ему не нужен был доступ к GitHub, но страницу нельзя было дёргать
 // анонимно: каждый запуск — реальный прогон в CI и реальная отправка
 // тестового email в CRM клиента (см. TEST_EMAIL в самом наборе тестов).
 add_action('wp_ajax_imagen_qa_run_test', 'imagen_qa_handle_run_test');
+
+// Токен нужен для вызова GitHub API из PHP-обработчика ниже. Без доступа
+// к файлам сайта (FTP/файловый менеджер) прописать его в wp-config.php
+// нельзя — поэтому основной способ хранения тут: опция в БД через эту
+// страницу настроек, доступную только администраторам (manage_options).
+// Если позже появится файловый доступ, можно вместо этого определить
+// константу IMAGEN_QA_GITHUB_TOKEN в wp-config.php — она имеет приоритет.
+function imagen_qa_add_settings_page() {
+    add_options_page(
+        'Imagen QA Test Runner',
+        'Imagen QA Runner',
+        'manage_options',
+        'imagen-qa-test-runner',
+        'imagen_qa_render_settings_page'
+    );
+}
+
+function imagen_qa_get_github_token() {
+    if (defined('IMAGEN_QA_GITHUB_TOKEN') && IMAGEN_QA_GITHUB_TOKEN) {
+        return IMAGEN_QA_GITHUB_TOKEN;
+    }
+    return get_option('imagen_qa_github_token', '');
+}
+
+function imagen_qa_render_settings_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    if (isset($_POST['imagen_qa_token_nonce']) && wp_verify_nonce($_POST['imagen_qa_token_nonce'], 'imagen_qa_save_token')) {
+        $new_token = isset($_POST['imagen_qa_github_token']) ? sanitize_text_field(wp_unslash($_POST['imagen_qa_github_token'])) : '';
+        if ($new_token !== '') {
+            update_option('imagen_qa_github_token', $new_token);
+            echo '<div class="notice notice-success"><p>Токен сохранён.</p></div>';
+        }
+    }
+
+    $using_constant = defined('IMAGEN_QA_GITHUB_TOKEN') && IMAGEN_QA_GITHUB_TOKEN;
+    $has_saved_option = (bool) get_option('imagen_qa_github_token', '');
+    ?>
+    <div class="wrap">
+        <h1>Imagen QA Test Runner</h1>
+        <?php if ($using_constant): ?>
+            <p>Токен задан константой <code>IMAGEN_QA_GITHUB_TOKEN</code> в <code>wp-config.php</code> — поле ниже игнорируется, пока константа определена.</p>
+        <?php else: ?>
+            <form method="post">
+                <?php wp_nonce_field('imagen_qa_save_token', 'imagen_qa_token_nonce'); ?>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><label for="imagen_qa_github_token">GitHub Token (fine-grained, Actions: write)</label></th>
+                        <td>
+                            <input type="password" id="imagen_qa_github_token" name="imagen_qa_github_token" class="regular-text" placeholder="<?php echo $has_saved_option ? 'Токен сохранён — введите новый, чтобы заменить' : 'github_pat_...'; ?>">
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button('Сохранить'); ?>
+            </form>
+        <?php endif; ?>
+    </div>
+    <?php
+}
 
 function imagen_qa_enqueue_assets() {
     wp_register_script(
@@ -97,9 +159,9 @@ function imagen_qa_handle_run_test() {
         wp_send_json_error(['message' => 'Подождите пару минут перед следующим запуском.'], 429);
     }
 
-    $token = defined('IMAGEN_QA_GITHUB_TOKEN') ? IMAGEN_QA_GITHUB_TOKEN : '';
+    $token = imagen_qa_get_github_token();
     if (!$token) {
-        wp_send_json_error(['message' => 'GitHub-токен не настроен на сервере (константа IMAGEN_QA_GITHUB_TOKEN в wp-config.php).'], 500);
+        wp_send_json_error(['message' => 'GitHub-токен не настроен — зайдите в Настройки → Imagen QA Runner и сохраните токен.'], 500);
     }
 
     $browsers = isset($_POST['browsers']) ? sanitize_text_field(wp_unslash($_POST['browsers'])) : 'chromium';
