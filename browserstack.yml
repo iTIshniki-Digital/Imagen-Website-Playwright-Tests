@@ -1,0 +1,7 @@
+# userName/accessKey сюда НЕ пишем — SDK сам читает их из переменных
+# окружения BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY (.env локально,
+# GitHub Secrets в CI), см. playwright.browserstack.config.ts.
+platforms:
+  - browserName: safari
+    osVersion: 17
+    deviceName: iPhone 15
