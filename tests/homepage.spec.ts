@@ -23,14 +23,20 @@ test.describe('Homepage', () => {
     expect(issues.failedRequests, `Проваленные запросы:\n${issues.failedRequests.join('\n')}`).toEqual([]);
   });
 
-  test('hero form redirects to /step-2/ with email prefilled after submit', async ({ page }) => {
+  test('hero CTA redirects to /step-2/ (handles both A/B variants)', async ({ page }, testInfo) => {
     const homePage = new HomePage(page);
     await homePage.goto();
 
-    await homePage.submitHeroEmail();
+    const variant = await homePage.continueToStepTwo();
+    testInfo.annotations.push({ type: 'hero-variant', description: variant });
 
     await expect(page).toHaveURL(/\/step-2\/?$/);
-    await expect(page.locator('input[type="email"], input[name*="email" i]').first()).toHaveValue(TEST_EMAIL);
+
+    // Prefill email работает только у form-варианта — у link-варианта
+    // email на шаге 2 ещё не задан, там его вводят с нуля.
+    if (variant === 'form') {
+      await expect(page.locator('input[type="email"], input[name*="email" i]').first()).toHaveValue(TEST_EMAIL);
+    }
   });
 
   test('nav "Get Started" redirects to /step-2/', async ({ page }) => {

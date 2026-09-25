@@ -8,15 +8,21 @@ export class HomePage extends BasePage {
   // getByRole ищет по семантике (роль + видимый текст), это переживает верстку.
   readonly navGetStartedButton: Locator;
 
-  // Проверено вживую 2026-09-24: hero-CTA — это НЕ отдельная ссылка, а
-  // submit-кнопка внутри формы id="go_to_step2_new_hp" (id задан вручную в
-  // Elementor, семантический и стабильный). Без заполненного email-поля
-  // кнопка ничего не делает. Старый локатор искал только <a>-ссылки и
-  // поэтому никогда не мог найти эту кнопку — вероятно, этим объясняется
-  // прошлый отчёт "hero CTA пропала", а не реальным багом сайта.
+  // Подтверждено вживую, что hero-CTA — это активный A/B-тест минимум с
+  // двумя разными реализациями, переключающимися без предупреждения:
+  //   - 2026-09-24/25: submit-кнопка внутри формы id="go_to_step2_new_hp"
+  //     с email-полем (#form-field-email) — без заполненного email кнопка
+  //     ничего не делает.
+  //   - 2026-09-26: та же форма скрыта (display:none), вместо неё простая
+  //     ссылка <a>Get Started</a> без формы, ведёт на /step-2/ напрямую.
+  // Раньше это уже приводило к ложному отчёту "hero CTA пропала" (старый
+  // локатор искал только ссылки и не видел форму). Теперь оба варианта
+  // поддержаны явно — какой из них активен на конкретном прогоне, решаем
+  // рантаймом, а не жёстко фиксируем один.
   readonly heroForm: Locator;
   readonly heroEmailInput: Locator;
-  readonly heroSubmitButton: Locator;
+  readonly heroFormSubmitButton: Locator;
+  readonly heroLinkVariant: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -25,7 +31,11 @@ export class HomePage extends BasePage {
 
     this.heroForm = page.locator('#go_to_step2_new_hp');
     this.heroEmailInput = this.heroForm.locator('#form-field-email');
-    this.heroSubmitButton = this.heroForm.getByRole('button', { name: /get started/i });
+    this.heroFormSubmitButton = this.heroForm.getByRole('button', { name: /get started/i });
+
+    this.heroLinkVariant = page
+      .getByRole('link', { name: /get started/i })
+      .filter({ hasNot: page.locator('xpath=ancestor::header') });
   }
 
   async goto(): Promise<void> {
@@ -36,14 +46,26 @@ export class HomePage extends BasePage {
     await this.navGetStartedButton.click();
   }
 
-  async submitHeroEmail(email: string = TEST_EMAIL): Promise<void> {
+  /**
+   * Проходит hero-CTA к /step-2/, каким бы A/B-вариантом она сейчас ни
+   * была (форма с email или простая ссылка). Возвращает, какой вариант
+   * сработал — полезно залогировать в тесте, чтобы было видно в отчёте.
+   */
+  async continueToStepTwo(email: string = TEST_EMAIL): Promise<'form' | 'link'> {
+    const formVisible = await this.heroEmailInput.isVisible().catch(() => false);
+    if (formVisible) {
+      await this.heroEmailInput.fill(email);
+      // form_fields[invalid] — honeypot-поле Elementor против ботов: если
+      // его заполнить, форма молча отклонит отправку. Не трогаем.
+      await this.heroFormSubmitButton.click();
+      return 'form';
+    }
+
     await expect(
-      this.heroEmailInput,
-      'Email-поле hero-формы не найдено на главной — возможно, изменилась вёрстка формы'
+      this.heroLinkVariant.first(),
+      'Hero "Get Started" не найдена ни в виде формы, ни в виде ссылки — возможно, новый A/B-вариант или реальное изменение вёрстки'
     ).toBeVisible({ timeout: 10000 });
-    await this.heroEmailInput.fill(email);
-    // form_fields[invalid] — honeypot-поле Elementor против ботов: если его
-    // заполнить, форма молча отклонит отправку. Намеренно его не трогаем.
-    await this.heroSubmitButton.click();
+    await this.heroLinkVariant.first().click();
+    return 'link';
   }
 }
