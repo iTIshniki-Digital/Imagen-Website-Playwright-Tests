@@ -11,7 +11,7 @@ const IGNORED_PATTERNS: RegExp[] = [
   /doubleclick\.net/i,
   /intercom\.io|intercomcdn\.com/i,
   /hs-scripts\.com|hsforms\.com|hubspot/i,
-  /bat\.bing\.com/i,
+  /bat\.bing\.(com|net)/i,
   /linkedin\.com\/px|snap\.licdn\.com/i,
   /analytics\.tiktok\.com/i,
   /ads-twitter\.com|analytics\.x\.com/i,
@@ -74,5 +74,25 @@ export class BasePage {
     });
 
     return issues;
+  }
+
+  /**
+   * Cookie-баннер (checklist #31 — раньше не могли найти реальный
+   * контейнер, только подозрительный элемент `.cky`). Подтверждено вживую
+   * 2026-09-30: на /photo-quiz/ он перекрывает .answer, и обычный клик по
+   * ответу молча проваливается (попадает не в тот элемент под баннером) —
+   * так был найден и сам баннер. Похоже, появляется не всегда (не на
+   * каждой загрузке), поэтому безопасно вызывать всегда — если баннера
+   * нет, ничего не делает.
+   */
+  async dismissCookieBanner(): Promise<void> {
+    const acceptButton = this.page
+      .getByRole('link', { name: /^accept$/i })
+      .or(this.page.getByRole('button', { name: /^accept$/i }));
+
+    const visible = await acceptButton.first().isVisible().catch(() => false);
+    if (visible) {
+      await acceptButton.first().click({ timeout: 3000 }).catch(() => {});
+    }
   }
 }

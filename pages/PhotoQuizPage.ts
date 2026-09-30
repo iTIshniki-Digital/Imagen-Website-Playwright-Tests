@@ -20,15 +20,13 @@ import { BasePage } from './BasePage';
 // к реальному оформлению подписки. Вместо неё есть ссылка "Or try a
 // limited free trial" — только её и жмём.
 //
-// answerUntilOffer() написан и работает (подтверждено — доходит до новых,
-// ранее не виденных экранов вроде "Imagen for Weddings"), но полное
-// прохождение до самого экрана оффера занимает от 90 до 150+ секунд
-// живого времени на реальном сайте и переменное число шагов — слишком
-// долго и вариативно для быстрого стабильного теста. Метод оставлен
-// доступным (пригодится для ручной отладки или отдельного долгого
-// теста), но НЕ вызывается ни из одного теста в этой сборке — см.
-// tests/signup-funnel.spec.ts, который проверяет более скромную,
-// быстро достижимую границу.
+// answerUntilOffer() доходит до экрана оффера (подтверждено вживую
+// 2026-09-30), но полное прохождение занимает от 90 до 150+ секунд живого
+// времени и переменное число шагов — слишком долго для быстрого теста,
+// который должен гонять часто. Поэтому вызывается не из signup-funnel.spec.ts
+// (там проверяется только сам факт попадания на страницу квиза — быстро и
+// надёжно), а из отдельного tests/quiz-full-walkthrough.spec.ts с большим
+// таймаутом, предназначенного именно для такой глубокой проверки.
 export class PhotoQuizPage extends BasePage {
   readonly questionTitle: Locator;
   readonly answers: Locator;
@@ -64,42 +62,113 @@ export class PhotoQuizPage extends BasePage {
    *
    * Порядок, количество и оформление вопросов варьируются между заходами
    * (подтверждено вживую 2026-09-30 — это не баг теста, сайт настолько
-   * рандомизирован). Изредка клик по ответу не успевает провзаимодействовать
-   * с SPA до истечения паузы — заголовок вопроса не меняется, хотя клик
-   * прошёл без ошибок и hit-test подтверждает точное попадание. Поэтому
-   * после клика проверяем, что состояние экрана реально изменилось, и
-   * повторяем клик, если нет — вместо того чтобы слепо идти дальше.
+   * рандомизирован).
+   *
+   * ВАЖНО про два режима вопросов (найдено вживую 2026-09-30 при разборе
+   * зависания на вопросе "Your go-to software..."): часть вопросов
+   * переходит на следующий экран СРАЗУ по клику на ответ (Continue вообще
+   * не показывается); другая часть — похоже, с множественным выбором —
+   * держит Continue видимым одновременно с ответами, клик по ответу там
+   * только выделяет вариант, а переход дальше требует отдельного клика по
+   * Continue. Старая версия этого метода считала "Continue стал виден"
+   * доказательством того, что клик по ответу уже сработал — из-за этого
+   * зацикливалась на вопросах второго типа (кликала один и тот же ответ
+   * 29+ раз подряд, никогда не нажимая саму кнопку). Теперь это два явных
+   * состояния на экран: сначала выбираем ответ (если ещё не выбирали на
+   * этом самом экране), потом, если есть Continue, жмём его.
    */
-  async answerUntilOffer(maxSteps = 30): Promise<void> {
+  async answerUntilOffer(maxSteps = 40): Promise<void> {
+    await this.dismissCookieBanner();
+    await this.waitForFirstScreenReady();
+
+    let lastTitle: string | null = null;
+    let selectedOnThisScreen = false;
+
     for (let i = 0; i < maxSteps; i++) {
       const offerVisible = await this.claimPaidPlanButton.first().isVisible().catch(() => false);
       if (offerVisible) break;
 
+      // ВАЖНО (найдено вживую 2026-09-30, стоило теста, зависшего на 240с):
+      // .textContent() без явного timeout ждёт появления элемента ДО
+      // ДЕФОЛТНОГО таймаута (30с!), если .q-title сейчас нет вообще — а на
+      // маркетинговых интерстишлах (например "Imagen for Weddings") его и
+      // правда нет. isVisible()/count() возвращают мгновенно даже при 0
+      // совпадений, но textContent()/isDisabled()/isEnabled() — нет,
+      // поэтому именно здесь короткий timeout обязателен.
+      const currentTitle = await this.questionTitle.textContent({ timeout: 1000 }).catch(() => null);
+      if (currentTitle !== lastTitle) {
+        lastTitle = currentTitle;
+        selectedOnThisScreen = false;
+      }
+
       const answerCount = await this.answers.count();
-      if (answerCount > 0) {
-        const titleBefore = await this.questionTitle.textContent().catch(() => null);
-        let advanced = false;
+      const hasContinue = (await this.continueButton.count()) > 0;
 
-        for (let attempt = 0; attempt < 3 && !advanced; attempt++) {
-          await this.answers.first().click();
-          await this.page.waitForTimeout(700);
-
-          const offerNow = await this.claimPaidPlanButton.first().isVisible().catch(() => false);
-          const titleAfter = await this.questionTitle.textContent().catch(() => null);
-          const hasContinueNow = (await this.continueButton.count()) > 0;
-          advanced = offerNow || titleAfter !== titleBefore || hasContinueNow;
-        }
+      if (answerCount > 0 && !selectedOnThisScreen) {
+        // selectedOnThisScreen ставим true, только если клик реально
+        // прошёл — иначе (например, что-то на секунду перекрыло .answer,
+        // как было с cookie-баннером) следующая итерация просто повторит
+        // ту же попытку, а не молча решит, что ответ уже выбран.
+        const clicked = await this.answers
+          .first()
+          .click({ timeout: 3000 })
+          .then(() => true)
+          .catch(() => false);
+        selectedOnThisScreen = clicked;
+        await this.page.waitForTimeout(700);
         continue;
       }
 
-      const hasContinue = (await this.continueButton.count()) > 0;
       if (hasContinue) {
-        await this.continueButton.click();
-        await this.page.waitForTimeout(600);
+        try {
+          await this.continueButton.click({ timeout: 5000 });
+        } catch {
+          // Похоже на множественный выбор: одного варианта не хватило,
+          // чтобы разблокировать Continue — добавляем ещё один и пробуем снова.
+          if (answerCount > 1) {
+            await this.answers.nth(1).click({ timeout: 3000 }).catch(() => {});
+            await this.page.waitForTimeout(500);
+            await this.continueButton.click({ timeout: 5000 }).catch(() => {});
+          }
+        }
+        await this.page.waitForTimeout(700);
+        continue;
+      }
+
+      if (answerCount > 0) {
+        // selectedOnThisScreen уже true, но экран не сдвинулся и Continue
+        // не появился — клик мог не провзаимодействовать с SPA (см.
+        // историю правок), пробуем ещё раз.
+        await this.answers.first().click({ timeout: 3000 }).catch(() => {});
+        await this.page.waitForTimeout(700);
         continue;
       }
 
       break;
+    }
+  }
+
+  /**
+   * Подтверждено вживую 2026-09-30: примерно в четверти заходов первый
+   * экран квиза не активируется — его `.screen`-обёртка остаётся с
+   * `display:none` (весь ответ есть в DOM, но невидим и некликабелен),
+   * хотя заголовок вопроса уже читается из DOM. Похоже на редкий сбой
+   * инициализации виджета на стороне сайта: подождать дольше не помогает
+   * (проверяли до 8с) — состояние не самовосстанавливается. Один reload
+   * здесь безопасен (в отличие от reload ПОСЛЕ начала квиза — см.
+   * комментарий к классу): мы ещё ничего не выбрали, терять нечего.
+   */
+  private async waitForFirstScreenReady(maxAttempts = 2): Promise<void> {
+    const ready = this.answers.first().or(this.continueButton).or(this.claimPaidPlanButton);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const becameReady = await ready
+        .first()
+        .waitFor({ state: 'visible', timeout: 6000 })
+        .then(() => true)
+        .catch(() => false);
+      if (becameReady) return;
+      if (attempt < maxAttempts) await this.page.reload();
     }
   }
 }
