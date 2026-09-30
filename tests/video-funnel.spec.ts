@@ -18,9 +18,10 @@ test('video step-2 form submits and leaves /video/step-2/', async ({ page }) => 
 
   await videoStepTwoPage.fillAndSubmit('Playwright', 'QA', TEST_EMAIL);
 
-  // Намеренно не утверждаем конкретный следующий URL: судя по опыту
-  // основной воронки (pages/PhotoQuizPage.ts), дальше вероятен похожий
-  // сильно рандомизированный квиз-виджет — не стоит гнаться за конкретным
-  // экраном. Проверяем только, что сабмит реально сработал и увёл дальше.
-  await expect(page, 'После отправки формы должны уйти с /video/step-2/').not.toHaveURL(/\/video\/step-2\/?$/, { timeout: 15000 });
+  // Подтверждено вживую 2026-09-30: ведёт на конкретный, стабильный адрес
+  // /video/questionnaire-2/ — не расплывчатое "куда-то ушли". Первая
+  // попытка проверить это блайндовым waitForTimeout+URL-чтением ловила
+  // ложное "не ушли" — навигация просто ещё не успела случиться к моменту
+  // проверки; waitForURL ждёт её по-настоящему.
+  await page.waitForURL(/\/video\/questionnaire-2\//, { timeout: 15000 });
 });
