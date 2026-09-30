@@ -20,23 +20,18 @@ export default defineConfig({
   },
   use: {
     baseURL: 'https://imagen-ai.com',
-    // ИЗВЕСТНЫЙ БЛОКЕР, подтверждено 2026-09-30: реальное подключение к
-    // BrowserStack работает (креды верные, доходит до newContext), но
-    // падает с "expectedValue of reducedMotion: none does not match
-    // providedValue: no-preference". Проверено: не помогает (а) явный
-    // reducedMotion тут и на уровне project.use — значение игнорируется,
-    // патчится самим SDK (node_modules/browserstack-node-sdk/.../patches.js);
-    // (б) обновление browserstack-node-sdk до последней версии (1.71.2);
-    // (в) другое устройство/iOS (пробовали iPhone 14/iOS16 — та же ошибка).
-    // Похоже на баг/несовместимость самого SDK с @playwright/test 1.63.x,
-    // не лечится через конфиг с нашей стороны. Не тратить время на новые
-    // попытки без свежей версии SDK или ответа от поддержки BrowserStack.
-    reducedMotion: 'no-preference',
+    // grep в node_modules/playwright-core подтвердил: валидные значения
+    // reducedMotion — 'reduce' | 'no-preference' | 'no-override' ("none"
+    // из ошибки BrowserStack — это их термин, не playwright-овский).
+    // 'no-override' буквально значит "не переопределять" — похоже, именно
+    // это и ждёт BrowserStack, а не 'no-preference' (которое пробовали
+    // раньше и которое, видимо, Playwright 1.63 шлёт по умолчанию).
+    reducedMotion: 'no-override',
   },
   projects: [
     {
       name: 'safari@iPhone 15:17@browserstack-mobile',
-      use: { baseURL: 'https://imagen-ai.com', reducedMotion: 'no-preference' },
+      use: { baseURL: 'https://imagen-ai.com', reducedMotion: 'no-override' },
     },
   ],
 });
