@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test:browserstack": "browserstack-node-sdk playwright test --config=./playwright.browserstack.config.ts"
+    "test:browserstack": "dotenv -e .env -- browserstack-node-sdk playwright test --config=./playwright.browserstack.config.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,8 +12,9 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.2",
-    "browserstack-node-sdk": "^1.70.3",
-    "dotenv": "^17.4.2"
+    "browserstack-node-sdk": "^1.71.2",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0"
   },
   "dependencies": {
     "googleapis": "^178.0.0"

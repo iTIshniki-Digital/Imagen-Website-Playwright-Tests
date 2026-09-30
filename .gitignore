@@ -6,6 +6,9 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
+# BrowserStack SDK run logs
+/log/
+
 # Environment variables (Mailosaur/Mailtrap, BrowserStack credentials, etc.)
 .env
 .env.*
