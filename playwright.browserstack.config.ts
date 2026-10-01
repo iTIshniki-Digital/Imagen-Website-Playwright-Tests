@@ -11,6 +11,24 @@ dotenv.config({ path: path.resolve(__dirname, '.env'), quiet: true });
 // 117 тестов сюда не нужно — только то, что осмысленно на живом телефоне.
 // Название project ниже должно точно соответствовать browserstack.yml:
 // "{browserName}@{deviceName}:{osVersion}@browserstack-mobile"
+//
+// Десктопный Mac Safari (checklist #21) проверен вживую 2026-10-01 и
+// НЕВОЗМОЖЕН через этот SDK в принципе — не "другой, более старый
+// механизм", как предполагалось раньше, а чётко подтверждено: добавление
+// в browserstack.yml второй платформы (browserName: safari, os: OS X,
+// osVersion: Sonoma) и запуск дали прямую ошибку от самого BrowserStack —
+// `browserType.connect: Error: Invalid 'browser'. Use 'chrome', 'edge',
+// 'playwright-chromium', 'playwright-webkit' or 'playwright-firefox'
+// only` — то есть их Playwright-connect эндпоинт для ДЕСКТОПА в принципе
+// не отдаёт настоящий Safari.app, только Chrome/Edge/движки самого
+// Playwright (safari здесь работает только для МОБИЛЬНЫХ устройств, как
+// у нас и настроено). `playwright-webkit` на macOS-машине BrowserStack —
+// единственный близкий вариант, но это тот же движок WebKit, что уже
+// гоняется локально/в CI, просто на другой ОС под капотом — не похоже на
+// осмысленное дополнительное покрытие ради своей цены/сложности. Для
+// настоящего десктопного Safari нужен их отдельный продукт на базе
+// Selenium/WebDriver ("Automate"), а не этот Playwright-SDK — отдельная
+// интеграция, не доделанная (и, вероятно, не стоящая усилий сейчас).
 export default defineConfig({
   testDir: './tests',
   testMatch: ['homepage.spec.ts'],

@@ -47,30 +47,46 @@ export class QuestionnairePage extends BasePage {
    * доступная для нажатия кнопка Continue). Текстовые уточняющие поля
    * ("Please write..." после выбора "Other") намеренно пропускаются —
    * они необязательные, форма проходит дальше и без них.
+   *
+   * Подтверждено вживую 2026-10-01: на /video/questionnaire-2/ (22 группы
+   * полей — заметно больше, чем на /questionnaire/) визарду иногда нужно
+   * ДО 6 СЕКУНД, чтобы вообще стать кликабельным — та же природа, что и
+   * "первый экран квиза не активируется сразу" в PhotoQuizPage, просто
+   * здесь это не разовый старт, а зависит от объёма формы. Один неудачный
+   * проход по всем группам подряд — это нормально, пока он не повторяется;
+   * даём до 3 подряд пустых проходов с паузой, прежде чем сдаться.
    */
-  async answerAllSteps(maxSteps = 20): Promise<void> {
+  async answerAllSteps(maxSteps = 40): Promise<number> {
     await this.dismissCookieBanner();
 
     const answeredGroups = new Set<string>();
+    let consecutiveEmptySweeps = 0;
 
     for (let i = 0; i < maxSteps; i++) {
       const continueClicked = await this.tryClickContinue();
       if (continueClicked) {
+        consecutiveEmptySweeps = 0;
         await this.page.waitForTimeout(700);
         continue;
       }
 
       const clickedGroupKey = await this.clickFirstReachableOption(answeredGroups);
       if (clickedGroupKey) {
+        consecutiveEmptySweeps = 0;
         answeredGroups.add(clickedGroupKey);
         await this.page.waitForTimeout(500);
         continue;
       }
 
-      // Ни Continue, ни один из известных вопросов сейчас не доступны —
-      // либо дошли до конца формы, либо застряли на чём-то новом.
-      break;
+      // Ни Continue, ни один из известных вопросов сейчас не доступны.
+      // Может, визард ещё не успел инициализироваться — а может, дошли
+      // до конца формы или застряли на чём-то новом.
+      consecutiveEmptySweeps++;
+      if (consecutiveEmptySweeps >= 3) break;
+      await this.page.waitForTimeout(2000);
     }
+
+    return answeredGroups.size;
   }
 
   private async tryClickContinue(): Promise<boolean> {

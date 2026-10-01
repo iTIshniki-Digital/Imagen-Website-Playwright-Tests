@@ -36,8 +36,13 @@ test.describe('Video quiz full walkthrough', () => {
     await page.waitForURL(/\/video\/questionnaire-2\//, { timeout: 15000 });
 
     const questionnairePage = new QuestionnairePage(page);
-    await questionnairePage.answerAllSteps();
+    const answeredCount = await questionnairePage.answerAllSteps();
 
-    await expect(page, 'Анкета не должна остаться на /video/step-2/').not.toHaveURL(/\/video\/step-2\//);
+    // Подтверждено вживую 2026-10-01: простой URL-чек (ушли с /video/step-2/)
+    // проходит, даже если answerAllSteps() не ответил вообще ни на один
+    // вопрос — мы уже не на step-2 просто потому, что форма туда и не
+    // должна вернуться. Реальная проверка прогресса — сколько вопросов
+    // реально отвечено (на этой форме их заметно больше 10).
+    expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
   });
 });

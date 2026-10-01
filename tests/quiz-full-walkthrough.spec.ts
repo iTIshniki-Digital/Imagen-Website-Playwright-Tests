@@ -48,14 +48,14 @@ test.describe('Quiz full walkthrough', () => {
     } else {
       test.info().annotations.push({ type: 'quiz-widget', description: 'questionnaire' });
       const questionnairePage = new QuestionnairePage(page);
-      await questionnairePage.answerAllSteps();
+      const answeredCount = await questionnairePage.answerAllSteps();
 
       // Разметка "конца" формы questionnaire ещё не подтверждена так же
-      // надёжно, как download-кнопки photo-quiz — проверяем минимально:
-      // форма реально продвинулась (Continue больше не заблокирован
-      // бесконечно, answerAllSteps не завис) и мы не застряли на первом
-      // же вопросе.
-      await expect(page).not.toHaveURL(/\/step-2\//);
+      // надёжно, как download-кнопки photo-quiz — проверяем количеством
+      // реально отвеченных вопросов, а не просто URL: подтверждено вживую
+      // 2026-10-01, что уход с /step-2/ происходит независимо от того,
+      // ответили ли мы хоть на один вопрос анкеты дальше.
+      expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
     }
   });
 });
