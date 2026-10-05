@@ -9,6 +9,7 @@
     { "name": "Blog", "path": "/blog/" },
     { "name": "About", "path": "/about/" },
     { "name": "Business", "path": "/business/" },
-    { "name": "Video", "path": "/video/" }
+    { "name": "Video", "path": "/video/" },
+    { "name": "Podcast", "path": "/podcast/" }
   ]
 }
