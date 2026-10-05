@@ -1,128 +1,137 @@
-import { Locator, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { wakeUpPageScripts } from './pageActivation';
 
-// /questionnaire/ — подтверждено вживую 2026-09-30: это НЕ другая тема
-// того же квиза, что на /photo-quiz/ (см. PhotoQuizPage) — это совсем
-// другой виджет, Elementor Pro "Form Steps" (12 шагов, элементы
-// `.elementor-field-type-step`/`.e-form__step`). Какой из двух виджетов
-// покажется после /step-2/, зависит от URL редиректа (подтверждено:
-// прямой заход на /photo-quiz/ и на /questionnaire/ каждый раз давал
-// один и тот же соответствующий виджет, 2 из 2 на каждый) — то есть это
-// не рандом внутри одной страницы, а выбор между двумя разными страницами.
+// /questionnaire/ и /video/questionnaire-2/ — один и тот же виджет Elementor Pro
+// "Form Steps" (подтверждено вживую 2026-09-30 и 2026-10-05). Не путать с
+// /photo-quiz/ (PhotoQuizPage): тот — другой виджет, классический квиз.
 //
-// Структура сильно отличается от PhotoQuizPage: реальные вопросы — это
-// НЕ 12 задействованных "шагов" (те — пустые служебные маркеры с
-// data-атрибутами для JS-визарда, `<div class="e-field-step
-// elementor-hidden" data-label="page1" data-nextbutton="Continue">`, без
-// текста и полей вообще), а обычные Elementor-поля формы
-// (`.elementor-field-group-<имя_поля>`), идущие ПОСЛЕ этих маркеров
-// плоским списком. Radio/checkbox `<input>` визуально скрыты (стандартный
-// паттерн "стилизованный чекбокс/радио через label") — кликаем по
-// `<label>`, а не по `<input>`.
+// Устройство виджета (разведка 2026-10-05): все группы полей
+// `.elementor-field-group-<имя>` лежат плоским списком, а вопрос вставляется в
+// группу, когда её шаг становится активным. Поэтому список групп, снятый при
+// загрузке, не отражает, что на экране сейчас. Надёжный сигнал — то, что видно
+// пользователю прямо сейчас: варианты ответов (radio/checkbox внутри <label>) в
+// окне просмотра и кнопка, которой визард идёт дальше.
 //
-// Определить, какой вопрос сейчас показан на экране, через любую простую
-// проверку видимости (bounding rect, computed style, даже Playwright'овский
-// дешёвый `:visible`-фильтр для списков) НЕ получается — подтверждено
-// вживую: все лейблы всех вопросов одновременно проходят такую проверку
-// (сайт прячет неактивные шаги через обрезку/трансформацию родительского
-// контейнера, а не через display на самих полях). Единственный надёжный
-// сигнал — попытка РЕАЛЬНОГО клика (Playwright делает honest hit-test по
-// центру элемента перед кликом): клик по лейблу вопроса, который сейчас
-// не на экране, либо падает по таймауту, либо явно говорит "outside of
-// the viewport" — а клик по лейблу актуального вопроса реально проходит и
-// меняет состояние нижележащего input (подтверждено вживую). Поэтому
-// answerAllSteps() перебирает известные группы полей по порядку и просто
-// пробует клик с коротким таймаутом на каждой — вместо того чтобы гадать
-// по разметке, какая из них активна.
+// Прежний обход шёл по сохранённым ключам групп и знал только «Continue». На
+// видео-анкете финальная кнопка называется «Finish setup» — обход её не нажимал,
+// и анкета «застревала» на предпоследнем экране. Сейчас обход идёт по
+// состоянию экрана и понимает все три кнопки продвижения.
 export class QuestionnairePage extends BasePage {
-  readonly continueButton: Locator;
+  // Кнопки продвижения визарда. «Finish setup» — финальная на видео-анкете.
+  private static readonly FORWARD_BUTTON = /^(continue|next|finish setup)$/i;
 
   constructor(page: Page) {
     super(page);
-    this.continueButton = page.getByRole('button', { name: /^continue$/i });
   }
 
   /**
-   * Проходит все шаги формы до конца (пока не иссякнут и вопросы, и
-   * доступная для нажатия кнопка Continue). Текстовые уточняющие поля
-   * ("Please write..." после выбора "Other") намеренно пропускаются —
-   * они необязательные, форма проходит дальше и без них.
+   * Проходит анкету до конца: отвечает на все видимые вопросы первым вариантом и
+   * жмёт кнопку продвижения. Останавливается, когда URL сменился (форма отправлена,
+   * например, на /video/download/) или когда больше нечего делать.
    *
-   * Подтверждено вживую 2026-10-01: на /video/questionnaire-2/ (22 группы
-   * полей — заметно больше, чем на /questionnaire/) визарду иногда нужно
-   * ДО 6 СЕКУНД, чтобы вообще стать кликабельным — та же природа, что и
-   * "первый экран квиза не активируется сразу" в PhotoQuizPage, просто
-   * здесь это не разовый старт, а зависит от объёма формы. Один неудачный
-   * проход по всем группам подряд — это нормально, пока он не повторяется;
-   * даём до 3 подряд пустых проходов с паузой, прежде чем сдаться.
+   * Возвращает число реально отмеченных ответов. Ответ засчитывается, только если
+   * после клика группа вопроса стала отмеченной, — клик, который не сработал,
+   * не считается.
    */
-  async answerAllSteps(maxSteps = 40): Promise<number> {
+  async answerAllSteps(maxSteps = 60): Promise<number> {
+    // Без первого действия пользователя визард не запускается вообще (см. pageActivation.ts).
+    await wakeUpPageScripts(this.page);
     await this.dismissCookieBanner();
 
-    const answeredGroups = new Set<string>();
-    let consecutiveEmptySweeps = 0;
+    const startUrl = this.page.url();
+    const tried = new Set<string>();
+    let answered = 0;
+    let idle = 0;
 
-    for (let i = 0; i < maxSteps; i++) {
-      const continueClicked = await this.tryClickContinue();
-      if (continueClicked) {
-        consecutiveEmptySweeps = 0;
-        await this.page.waitForTimeout(700);
-        continue;
+    try {
+      for (let i = 0; i < maxSteps; i++) {
+        if (this.page.url() !== startUrl) break;
+
+        const option = await this.nextVisibleOption(tried);
+        if (option) {
+          tried.add(option.key);
+          await this.page.mouse.click(option.x, option.y);
+          await this.page.waitForTimeout(600);
+          if (await this.groupHasChecked(option.groupClass)) answered++;
+          idle = 0;
+          continue;
+        }
+
+        if (await this.clickForward()) {
+          idle = 0;
+          await this.page.waitForTimeout(1200);
+          continue;
+        }
+
+        // После запуска визард отрисовывает следующий шаг примерно через 4 с —
+        // поэтому даём до 8 пустых секунд подряд, прежде чем решить, что анкета кончилась.
+        idle++;
+        if (idle >= 8) break;
+        await this.page.waitForTimeout(1000);
       }
-
-      const clickedGroupKey = await this.clickFirstReachableOption(answeredGroups);
-      if (clickedGroupKey) {
-        consecutiveEmptySweeps = 0;
-        answeredGroups.add(clickedGroupKey);
-        await this.page.waitForTimeout(500);
-        continue;
-      }
-
-      // Ни Continue, ни один из известных вопросов сейчас не доступны.
-      // Может, визард ещё не успел инициализироваться — а может, дошли
-      // до конца формы или застряли на чём-то новом.
-      consecutiveEmptySweeps++;
-      if (consecutiveEmptySweeps >= 3) break;
-      await this.page.waitForTimeout(2000);
+    } catch (error) {
+      // Последняя кнопка («Finish setup») уводит страницу на следующий экран: контекст
+      // текущей страницы уничтожается. Это не ошибка прохода, а его конец.
+      if (!/Execution context was destroyed|navigation/i.test((error as Error).message)) throw error;
     }
 
-    return answeredGroups.size;
+    return answered;
   }
 
-  private async tryClickContinue(): Promise<boolean> {
-    const button = this.continueButton.first();
-    if ((await button.count()) === 0) return false;
+  /**
+   * Первый видимый в окне неотвеченный вариант. Если ни одного такого нет, а
+   * неотвеченный вариант есть ниже экрана, прокручивает к нему и возвращает null —
+   * следующий проход увидит его уже в окне.
+   */
+  private async nextVisibleOption(tried: Set<string>): Promise<{ key: string; groupClass: string; x: number; y: number } | null> {
+    return this.page.evaluate((triedKeys: string[]) => {
+      const tried = new Set(triedKeys);
+      const viewportHeight = window.innerHeight;
+      let offscreen: HTMLElement | null = null;
 
-    const enabled = await button.isEnabled().catch(() => false);
-    if (!enabled) return false;
+      for (const label of Array.from(document.querySelectorAll<HTMLLabelElement>('.elementor-field-group label'))) {
+        const input = (label.querySelector('input') || label.control) as HTMLInputElement | null;
+        if (!input || (input.type !== 'radio' && input.type !== 'checkbox')) continue;
+
+        const group = label.closest('.elementor-field-group');
+        if (!group) continue;
+        const groupClass = (group.className.match(/elementor-field-group-(\S+)/) || [])[1] || '';
+        if (Array.from(group.querySelectorAll('input')).some((i) => i.checked)) continue;
+
+        const text = label.innerText.trim();
+        const key = `${groupClass}::${text}`;
+        if (tried.has(key)) continue;
+
+        const r = label.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        if (r.top >= 0 && r.bottom <= viewportHeight) {
+          return { key, groupClass, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        }
+        offscreen = offscreen ?? label;
+      }
+
+      offscreen?.scrollIntoView({ block: 'center' });
+      return null;
+    }, [...tried]);
+  }
+
+  private async groupHasChecked(groupClass: string): Promise<boolean> {
+    return this.page.evaluate((cls: string) => {
+      // Точное совпадение ключа: 'hear_about' не должен цепляться за 'hear_about_other'.
+      const group = Array.from(document.querySelectorAll('.elementor-field-group')).find(
+        (g) => (g.className.match(/elementor-field-group-(\S+)/) || [])[1] === cls
+      );
+      return !!group && Array.from(group.querySelectorAll('input')).some((i) => i.checked);
+    }, groupClass);
+  }
+
+  private async clickForward(): Promise<boolean> {
+    const button = this.page.getByRole('button', { name: QuestionnairePage.FORWARD_BUTTON }).filter({ visible: true }).first();
+    if ((await button.count()) === 0) return false;
+    if (!(await button.isEnabled().catch(() => false))) return false;
 
     await button.click({ timeout: 3000 }).catch(() => {});
     return true;
-  }
-
-  private async clickFirstReachableOption(answeredGroups: Set<string>): Promise<string | null> {
-    const groups = this.page.locator('[class*="elementor-field-group-"]').filter({ has: this.page.locator('label') });
-    const groupCount = await groups.count();
-
-    for (let g = 0; g < groupCount; g++) {
-      const group = groups.nth(g);
-      const className = (await group.getAttribute('class')) || '';
-      const key = className.match(/elementor-field-group-(\S+)/)?.[1] ?? `idx-${g}`;
-
-      if (answeredGroups.has(key)) continue;
-      if (key.endsWith('_other')) continue; // необязательное уточнение к "Other" — пропускаем
-
-      const labels = group.locator('label');
-      const labelCount = await labels.count();
-      if (labelCount < 2) continue; // .nth(0) — подпись вопроса, реальные варианты начинаются с .nth(1)
-
-      try {
-        await labels.nth(1).click({ timeout: 2000 });
-        return key;
-      } catch {
-        continue; // этот вопрос сейчас не на экране — пробуем следующий по порядку
-      }
-    }
-    return null;
   }
 }

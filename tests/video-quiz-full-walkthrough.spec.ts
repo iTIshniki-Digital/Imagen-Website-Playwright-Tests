@@ -15,7 +15,7 @@ import { TEST_EMAIL } from '../pages/testData';
 // структура полей) — переиспользуем QuestionnairePage, не пишем новый
 // класс под, по сути, тот же виджет.
 test.describe('Video quiz full walkthrough', () => {
-  test('video funnel reaches the end of the questionnaire-2 form', async ({ page }) => {
+  test('video funnel reaches the end of the questionnaire-2 form and the download page', async ({ page }) => {
     test.setTimeout(3 * 60 * 1000);
 
     const videoPage = new VideoPage(page);
@@ -38,11 +38,16 @@ test.describe('Video quiz full walkthrough', () => {
     const questionnairePage = new QuestionnairePage(page);
     const answeredCount = await questionnairePage.answerAllSteps();
 
-    // Подтверждено вживую 2026-10-01: простой URL-чек (ушли с /video/step-2/)
-    // проходит, даже если answerAllSteps() не ответил вообще ни на один
-    // вопрос — мы уже не на step-2 просто потому, что форма туда и не
-    // должна вернуться. Реальная проверка прогресса — сколько вопросов
-    // реально отвечено (на этой форме их заметно больше 10).
+    // Подтверждено вживую 2026-10-05: последняя кнопка видео-анкеты называется
+    // «Finish setup», не «Continue», и именно она отправляет форму на
+    // /video/download/ с текстом «You're all set!». Раньше обход её не нажимал,
+    // поэтому тест упирался в предпоследний экран (checklist #15/#16).
+    //
+    // Два отдельных ожидания, чтобы провал было видно точно: сколько вопросов
+    // реально отвечено, и дошли ли до страницы загрузки после формы.
     expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
+
+    await expect(page, 'После «Finish setup» не открылась страница загрузки /video/download/').toHaveURL(/\/video\/download\/?/, { timeout: 15000 });
+    await expect(page.getByText(/you.re all set/i).first(), 'На /video/download/ нет подтверждения «You’re all set»').toBeVisible();
   });
 });

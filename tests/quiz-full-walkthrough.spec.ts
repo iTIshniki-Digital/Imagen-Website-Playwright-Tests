@@ -50,12 +50,32 @@ test.describe('Quiz full walkthrough', () => {
       const questionnairePage = new QuestionnairePage(page);
       const answeredCount = await questionnairePage.answerAllSteps();
 
-      // Разметка "конца" формы questionnaire ещё не подтверждена так же
-      // надёжно, как download-кнопки photo-quiz — проверяем количеством
-      // реально отвеченных вопросов, а не просто URL: подтверждено вживую
-      // 2026-10-01, что уход с /step-2/ происходит независимо от того,
-      // ответили ли мы хоть на один вопрос анкеты дальше.
+      // Конец формы /questionnaire/ подтверждён вживую 2026-10-05: финальный экран
+      // «Congrats! You have 1,500 free edits! You’re all set…» появляется без смены
+      // URL (форма на той же странице). Поэтому проверяем сам экран, а не адрес —
+      // уход с /step-2/ сам по себе ничего не доказывает.
       expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
+      await expect(
+        page.getByText(/you.re all set/i).first(),
+        'После последнего вопроса /questionnaire/ не показан финальный экран «You’re all set»'
+      ).toBeVisible({ timeout: 15000 });
     }
+  });
+
+  // Ветка /questionnaire/ выбирается редиректом воронки и в обычном прогоне может не
+  // попасться. Отдельный прямой заход гарантирует, что второй виджет (#9) проверяется
+  // в каждом прогоне.
+  test('questionnaire widget (/questionnaire/) reaches its end screen on a direct visit', async ({ page }) => {
+    test.setTimeout(3 * 60 * 1000);
+    await page.goto('/questionnaire/');
+
+    const questionnairePage = new QuestionnairePage(page);
+    const answeredCount = await questionnairePage.answerAllSteps();
+
+    expect(answeredCount, 'Анкета /questionnaire/ должна реально продвинуться').toBeGreaterThan(5);
+    await expect(
+      page.getByText(/you.re all set/i).first(),
+      'На /questionnaire/ не показан финальный экран «You’re all set»'
+    ).toBeVisible({ timeout: 15000 });
   });
 });
