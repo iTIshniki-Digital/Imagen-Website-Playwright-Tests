@@ -8,6 +8,8 @@ node_modules/
 
 # BrowserStack SDK run logs
 /log/
+/browserstack/log/
+/browserstack/test-results/
 
 # Environment variables (Mailosaur/Mailtrap, BrowserStack credentials, etc.)
 .env

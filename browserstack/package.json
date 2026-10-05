@@ -1,0 +1,15 @@
+{
+  "name": "imagen-browserstack-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Отдельный прогон тестов на реальных устройствах BrowserStack. Отдельная папка и версия Playwright (1.49.1), потому что новые версии шлют reducedMotion по умолчанию и BrowserStack его не принимает.",
+  "scripts": {
+    "test": "dotenv -e ../.env -- browserstack-node-sdk playwright test --config=./playwright.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "browserstack-node-sdk": "1.71.2",
+    "dotenv": "^16.4.5",
+    "dotenv-cli": "^7.4.2"
+  }
+}

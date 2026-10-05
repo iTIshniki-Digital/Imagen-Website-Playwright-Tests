@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test:browserstack": "dotenv -e .env -- browserstack-node-sdk playwright test --config=./playwright.browserstack.config.ts"
+    "test:browserstack": "cd browserstack && npm test"
   },
   "keywords": [],
   "author": "",
