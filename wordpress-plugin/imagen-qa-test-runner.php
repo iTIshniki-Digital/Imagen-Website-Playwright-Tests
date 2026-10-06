@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Imagen QA Test Runner
  * Description: Форма для запуска Playwright-тестов imagen-ai.com через GitHub Actions, без захода в GitHub. Вставляется шорткодом [imagen_qa_test_runner].
- * Version: 1.1.0
+ * Version: 1.1.1
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('IMAGEN_QA_VERSION', '1.1.0');
+define('IMAGEN_QA_VERSION', '1.1.1');
 define('IMAGEN_QA_REPO', 'iTishnikiDigital/Imagen-Website-Playwright-Tests');
 define('IMAGEN_QA_WORKFLOW', 'playwright.yml');
 define('IMAGEN_QA_BRANCH', 'main');
@@ -258,7 +258,6 @@ function imagen_qa_render_form() {
     ?>
     <div class="imagen-qa-runner">
         <header class="iqr-head">
-            <div class="iqr-egg" aria-hidden="true"><span></span></div>
             <div>
                 <h2 class="iqr-title">Запуск тестов imagen-ai.com</h2>
                 <p class="iqr-lead">Прогон идёт в GitHub Actions. Отчёт придёт в Google Drive примерно через 20–30 минут.</p>
