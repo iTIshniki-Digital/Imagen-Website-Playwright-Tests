@@ -16,8 +16,9 @@
   --iqr-busy-ink: #4a5560;
 
   box-sizing: border-box;
-  max-width: 640px;
-  margin: 24px auto;
+  width: 100%;
+  max-width: none;
+  margin: 24px 0;
   padding: 24px;
   background: var(--iqr-bg);
   border: 1px solid var(--iqr-border);

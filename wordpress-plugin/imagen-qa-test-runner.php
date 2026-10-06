@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Imagen QA Test Runner
  * Description: Форма для запуска Playwright-тестов imagen-ai.com через GitHub Actions, без захода в GitHub. Вставляется шорткодом [imagen_qa_test_runner].
- * Version: 1.1.1
+ * Version: 1.1.2
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('IMAGEN_QA_VERSION', '1.1.1');
+define('IMAGEN_QA_VERSION', '1.1.2');
 define('IMAGEN_QA_REPO', 'iTishnikiDigital/Imagen-Website-Playwright-Tests');
 define('IMAGEN_QA_WORKFLOW', 'playwright.yml');
 define('IMAGEN_QA_BRANCH', 'main');
@@ -28,52 +28,52 @@ add_action('wp_ajax_imagen_qa_run_test', 'imagen_qa_handle_run_test');
 
 function imagen_qa_browsers() {
     return [
-        'chromium' => ['label' => 'Chrome', 'hint' => 'основной, самый быстрый'],
+        'chromium' => ['label' => 'Chrome', 'hint' => 'main, fastest'],
         'firefox'  => ['label' => 'Firefox', 'hint' => ''],
-        'webkit'   => ['label' => 'Safari', 'hint' => 'движок WebKit'],
+        'webkit'   => ['label' => 'Safari', 'hint' => 'WebKit engine'],
     ];
 }
 
 function imagen_qa_scopes() {
     return [
         'home' => [
-            'label' => 'Главная и навигация',
+            'label' => 'Homepage and navigation',
             'files' => ['tests/homepage.spec.ts', 'tests/navigation-links.spec.ts', 'tests/cta-buttons.spec.ts'],
         ],
         'funnel' => [
-            'label' => 'Воронка: email → квиз → скачивание',
+            'label' => 'Funnel: email → quiz → download',
             'files' => ['tests/signup-funnel.spec.ts', 'tests/form-validation.spec.ts', 'tests/quiz-full-walkthrough.spec.ts'],
         ],
         'video' => [
-            'label' => 'Видео-воронка',
+            'label' => 'Video funnel',
             'files' => ['tests/video-funnel.spec.ts', 'tests/video-quiz-full-walkthrough.spec.ts'],
         ],
         'mobile' => [
-            'label' => 'Мобильная (iPhone)',
+            'label' => 'Mobile (iPhone)',
             'files' => ['tests/mobile-funnel.spec.ts'],
         ],
         'locales' => [
-            'label' => 'Локализация',
+            'label' => 'Localization',
             'files' => ['tests/localization.spec.ts', 'tests/language-switcher.spec.ts', 'tests/localized-funnel.spec.ts'],
         ],
         'pricing' => [
-            'label' => 'Цены и API',
+            'label' => 'Pricing and API',
             'files' => ['tests/pricing-api.spec.ts', 'tests/pricing-rendered.spec.ts'],
         ],
         'responsive' => [
-            'label' => 'Адаптивность 768 / 375 px',
+            'label' => 'Responsive 768 / 375 px',
             'files' => ['tests/responsive.spec.ts', 'tests/tablet-sweep.spec.ts'],
         ],
         'health' => [
-            'label' => 'Ошибки и медиа',
+            'label' => 'Errors and media',
             'files' => ['tests/site-health.spec.ts', 'tests/media-video.spec.ts'],
         ],
         'widgets' => [
-            'label' => 'Виджеты, скролл, баннер',
+            'label' => 'Widgets, scroll, cookie banner',
             'files' => ['tests/interactive-widgets.spec.ts', 'tests/scroll-behavior.spec.ts', 'tests/cookie-banner.spec.ts'],
         ],
         'content' => [
-            'label' => 'Блог и подкаст',
+            'label' => 'Blog and podcast',
             'files' => ['tests/content-templates.spec.ts', 'tests/podcast-content-template.spec.ts'],
         ],
         'realestate' => [
@@ -169,12 +169,12 @@ function imagen_qa_render_settings_page() {
     if (isset($_POST['imagen_qa_token_nonce']) && wp_verify_nonce($_POST['imagen_qa_token_nonce'], 'imagen_qa_save_token')) {
         if (!empty($_POST['imagen_qa_reset'])) {
             delete_option('imagen_qa_github_token');
-            $notice = '<div class="notice notice-warning"><p>Токен удалён.</p></div>';
+            $notice = '<div class="notice notice-warning"><p>Token removed.</p></div>';
         } else {
             $new_token = isset($_POST['imagen_qa_github_token']) ? sanitize_text_field(wp_unslash($_POST['imagen_qa_github_token'])) : '';
             if ($new_token !== '') {
                 update_option('imagen_qa_github_token', $new_token);
-                $notice = '<div class="notice notice-success"><p>Токен сохранён.</p></div>';
+                $notice = '<div class="notice notice-success"><p>Token saved.</p></div>';
             }
         }
     }
@@ -185,14 +185,14 @@ function imagen_qa_render_settings_page() {
     <div class="wrap">
         <h1>Imagen QA Test Runner</h1>
         <?php echo $notice; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- собственная разметка выше ?>
-        <p>Версия плагина: <?php echo esc_html(IMAGEN_QA_VERSION); ?>.
-            Статус токена:
+        <p>Plugin version: <?php echo esc_html(IMAGEN_QA_VERSION); ?>.
+            Token status:
             <?php if ($using_constant): ?>
-                <strong>задан константой в wp-config.php</strong> (поле ниже игнорируется).
+                <strong>set by a constant in wp-config.php</strong> (the field below is ignored).
             <?php elseif ($has_saved_option): ?>
-                <strong>сохранён</strong>.
+                <strong>saved</strong>.
             <?php else: ?>
-                <strong>не задан</strong> — форма не сможет запускать тесты.
+                <strong>not set</strong> — the form cannot start tests.
             <?php endif; ?>
         </p>
         <?php if (!$using_constant): ?>
@@ -200,16 +200,16 @@ function imagen_qa_render_settings_page() {
                 <?php wp_nonce_field('imagen_qa_save_token', 'imagen_qa_token_nonce'); ?>
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><label for="imagen_qa_github_token">GitHub-токен</label></th>
+                        <th scope="row"><label for="imagen_qa_github_token">GitHub token</label></th>
                         <td>
-                            <input type="password" id="imagen_qa_github_token" name="imagen_qa_github_token" class="regular-text" autocomplete="off" placeholder="<?php echo $has_saved_option ? 'Токен сохранён — введите новый, чтобы заменить' : 'ghp_… (classic) или github_pat_… (fine-grained)'; ?>">
-                            <p class="description">Classic token с правом <code>repo</code> (проверено, работает). Fine-grained подойдёт, если в нём есть доступ к репозиторию с правом Actions: Read and write.</p>
+                            <input type="password" id="imagen_qa_github_token" name="imagen_qa_github_token" class="regular-text" autocomplete="off" placeholder="<?php echo $has_saved_option ? 'Token saved — enter a new one to replace it' : 'ghp_… (classic) or github_pat_… (fine-grained)'; ?>">
+                            <p class="description">Classic token with the <code>repo</code> scope (tested, works). A fine-grained token also works if it has access to the repository with Actions: Read and write.</p>
                         </td>
                     </tr>
                 </table>
-                <?php submit_button('Сохранить', 'primary', 'submit', false); ?>
+                <?php submit_button('Save', 'primary', 'submit', false); ?>
                 <?php if ($has_saved_option): ?>
-                    <?php submit_button('Удалить токен', 'secondary', 'imagen_qa_reset', false); ?>
+                    <?php submit_button('Remove token', 'secondary', 'imagen_qa_reset', false); ?>
                 <?php endif; ?>
             </form>
         <?php endif; ?>
@@ -231,7 +231,7 @@ function imagen_qa_last_run_text() {
         return '';
     }
     return sprintf(
-        'Последний запуск: %s · %s · %s',
+        'Last run: %s · %s · %s',
         esc_html(wp_date('d.m.Y H:i', (int) $last['time'])),
         esc_html($last['user'] ?? ''),
         esc_html($last['summary'] ?? '')
@@ -240,7 +240,7 @@ function imagen_qa_last_run_text() {
 
 function imagen_qa_render_form() {
     if (!is_user_logged_in()) {
-        return '<div class="imagen-qa-runner imagen-qa-runner--locked"><p>Войдите на сайт, чтобы запустить тест. <a href="' . esc_url(wp_login_url(get_permalink())) . '">Войти</a></p></div>';
+        return '<div class="imagen-qa-runner imagen-qa-runner--locked"><p>Log in to run tests. <a href="' . esc_url(wp_login_url(get_permalink())) . '">Log in</a></p></div>';
     }
 
     wp_enqueue_style('imagen-qa-test-runner', imagen_qa_assets_url('imagen-qa-test-runner.css'), [], IMAGEN_QA_VERSION);
@@ -259,14 +259,14 @@ function imagen_qa_render_form() {
     <div class="imagen-qa-runner">
         <header class="iqr-head">
             <div>
-                <h2 class="iqr-title">Запуск тестов imagen-ai.com</h2>
-                <p class="iqr-lead">Прогон идёт в GitHub Actions. Отчёт придёт в Google Drive примерно через 20–30 минут.</p>
+                <h2 class="iqr-title">Run imagen-ai.com tests</h2>
+                <p class="iqr-lead">The run goes through GitHub Actions. The report arrives in Google Drive in about 20–30 minutes.</p>
             </div>
         </header>
 
         <form class="iqr-form" novalidate>
             <section class="iqr-section">
-                <h3 class="iqr-label">1 · Браузеры</h3>
+                <h3 class="iqr-label">1 · Browsers</h3>
                 <div class="iqr-chips">
                     <?php foreach ($browsers as $value => $info): ?>
                         <label class="iqr-chip">
@@ -278,11 +278,11 @@ function imagen_qa_render_form() {
             </section>
 
             <section class="iqr-section">
-                <h3 class="iqr-label">2 · Что проверять</h3>
+                <h3 class="iqr-label">2 · What to check</h3>
                 <div class="iqr-chips">
                     <label class="iqr-chip iqr-chip--all">
                         <input type="checkbox" name="scope_all" checked>
-                        <span>Весь набор</span>
+                        <span>Full suite</span>
                     </label>
                     <?php foreach ($scopes as $key => $scope): ?>
                         <label class="iqr-chip">
@@ -293,33 +293,33 @@ function imagen_qa_render_form() {
                 </div>
 
                 <details class="iqr-advanced">
-                    <summary>Расширенные настройки</summary>
+                    <summary>Advanced settings</summary>
                     <div class="iqr-field">
-                        <label for="iqr-grep">Фильтр по названию теста</label>
-                        <input type="text" id="iqr-grep" name="grep" maxlength="120" placeholder="например: pricing|cookie" autocomplete="off">
-                        <small>Только латинские буквы, цифры, пробел и символы _ . , : ( ) / | -. Пусто — без фильтра.</small>
+                        <label for="iqr-grep">Filter by test name</label>
+                        <input type="text" id="iqr-grep" name="grep" maxlength="120" placeholder="for example: pricing|cookie" autocomplete="off">
+                        <small>Latin letters, digits, spaces and _ . , : ( ) / | - only. Leave empty for no filter.</small>
                     </div>
                     <div class="iqr-field">
-                        <label for="iqr-specs">Свои файлы тестов</label>
+                        <label for="iqr-specs">Custom test files</label>
                         <input type="text" id="iqr-specs" name="spec_files" maxlength="600" placeholder="tests/homepage.spec.ts tests/pricing-api.spec.ts" autocomplete="off">
-                        <small>Если заполнено, галочки выше не учитываются. Пути через пробел, до 12 файлов.</small>
+                        <small>If filled in, the checkboxes above are ignored. Paths separated by spaces, up to 12 files.</small>
                     </div>
                     <label class="iqr-check">
                         <input type="checkbox" name="retries" value="true">
-                        <span>Повторить упавшие тесты один раз <small>— отличает настоящий баг от случайного сбоя сети</small></span>
+                        <span>Retry failed tests once <small>— tells a real bug from a random network glitch</small></span>
                     </label>
                 </details>
             </section>
 
             <section class="iqr-section">
-                <h3 class="iqr-label">3 · Cookies A/B-теста <span class="iqr-optional">необязательно</span></h3>
+                <h3 class="iqr-label">3 · A/B test cookies <span class="iqr-optional">optional</span></h3>
                 <textarea class="iqr-cookies" name="cookies" rows="2" maxlength="2000" placeholder="name1=value1; name2=value2"></textarea>
             </section>
 
             <div class="iqr-summary" aria-live="polite"></div>
 
             <div class="iqr-actions">
-                <button type="submit" class="iqr-submit">Запустить прогон</button>
+                <button type="submit" class="iqr-submit">Start run</button>
             </div>
 
             <div class="iqr-status" role="status" aria-live="polite"></div>
@@ -342,38 +342,38 @@ function imagen_qa_post($key) {
 
 function imagen_qa_handle_run_test() {
     if (!is_user_logged_in()) {
-        wp_send_json_error(['message' => 'Нужен вход в систему.'], 403);
+        wp_send_json_error(['message' => 'Log in is required.'], 403);
     }
     check_ajax_referer('imagen_qa_run_test', 'nonce');
 
     $rate_limit_key = 'imagen_qa_rate_' . get_current_user_id();
     if (get_transient($rate_limit_key)) {
-        wp_send_json_error(['message' => 'Предыдущий запуск только что отправлен. Подождите пару минут.'], 429);
+        wp_send_json_error(['message' => 'The previous run was just sent. Wait a couple of minutes.'], 429);
     }
 
     $token = imagen_qa_get_github_token();
     if (!$token) {
-        wp_send_json_error(['message' => 'GitHub-токен не настроен. Администратор сайта может сохранить его в «Настройки → Imagen QA Runner».'], 500);
+        wp_send_json_error(['message' => 'The GitHub token is not set. A site administrator can save it under Settings → Imagen QA Runner.'], 500);
     }
 
     $browsers = imagen_qa_parse_browsers(imagen_qa_post('browsers'));
     if (empty($browsers)) {
-        wp_send_json_error(['message' => 'Выберите хотя бы один браузер.'], 400);
+        wp_send_json_error(['message' => 'Select at least one browser.'], 400);
     }
 
     $specs = imagen_qa_parse_specs(imagen_qa_post('spec_files'));
     if ($specs === null) {
-        wp_send_json_error(['message' => 'Файлы тестов записаны неверно. Нужны пути вида tests/имя.spec.ts через пробел, не больше 12.'], 400);
+        wp_send_json_error(['message' => 'Test file paths are invalid. Use paths like tests/name.spec.ts separated by spaces, at most 12.'], 400);
     }
 
     $grep = imagen_qa_parse_grep(imagen_qa_post('grep'));
     if ($grep === null) {
-        wp_send_json_error(['message' => 'В фильтре по названию есть недопустимые символы. Разрешены латинские буквы, цифры, пробел и _ . , : ( ) / | -.'], 400);
+        wp_send_json_error(['message' => 'The name filter has invalid characters. Allowed: Latin letters, digits, spaces and _ . , : ( ) / | -.'], 400);
     }
 
     $cookies = imagen_qa_parse_cookies(imagen_qa_post('cookies'));
     if ($cookies === null) {
-        wp_send_json_error(['message' => 'Cookies записаны неверно. Нужна строка вида name1=value1; name2=value2, без переносов строк.'], 400);
+        wp_send_json_error(['message' => 'Cookies are invalid. Use a string like name1=value1; name2=value2, on one line.'], 400);
     }
 
     $retries = imagen_qa_post('retries') === 'true' ? 'true' : 'false';
@@ -408,13 +408,13 @@ function imagen_qa_handle_run_test() {
     );
 
     if (is_wp_error($response)) {
-        wp_send_json_error(['message' => 'Не удалось связаться с GitHub: ' . $response->get_error_message()], 500);
+        wp_send_json_error(['message' => 'Could not reach GitHub: ' . $response->get_error_message()], 500);
     }
 
     $code = wp_remote_retrieve_response_code($response);
     if ($code !== 204) {
         $details = trim((string) wp_remote_retrieve_body($response));
-        wp_send_json_error(['message' => 'GitHub вернул ошибку (' . $code . ')' . ($details !== '' ? ': ' . $details : '.')], 500);
+        wp_send_json_error(['message' => 'GitHub returned an error (' . $code . ')' . ($details !== '' ? ': ' . $details : '.')], 500);
     }
 
     set_transient($rate_limit_key, true, 120);
@@ -422,12 +422,12 @@ function imagen_qa_handle_run_test() {
     $summary = implode(', ', array_map(function ($b) use ($browsers) {
         return imagen_qa_browsers()[$b]['label'];
     }, $browsers));
-    $summary .= $specs ? ' · свой набор (' . count($specs) . ')' : ' · ' . ($specs_str === '' ? 'весь набор' : $specs_str);
+    $summary .= $specs ? ' · custom set (' . count($specs) . ')' : ' · ' . ($specs_str === '' ? 'full suite' : $specs_str);
     if ($grep !== '') {
-        $summary .= ' · фильтр «' . $grep . '»';
+        $summary .= ' · filter "' . $grep . '"';
     }
     if ($retries === 'true') {
-        $summary .= ' · с повтором';
+        $summary .= ' · with retry';
     }
 
     $user = wp_get_current_user();
@@ -437,5 +437,5 @@ function imagen_qa_handle_run_test() {
         'summary' => $summary,
     ], false);
 
-    wp_send_json_success(['message' => 'Прогон запущен: ' . $summary . '. Отчёт появится в Google Drive примерно через 20–30 минут.']);
+    wp_send_json_success(['message' => 'Run started: ' . $summary . '. The report will appear in Google Drive in about 20–30 minutes.']);
 }

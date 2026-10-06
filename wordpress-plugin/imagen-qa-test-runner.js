@@ -53,19 +53,15 @@
       });
       var specs = selectedSpecs();
       var parts = [];
-      parts.push(labels.length ? labels.join(', ') : 'браузер не выбран');
-      parts.push(specs.length ? specs.length + ' ' + pluralFiles(specs.length) : 'весь набор');
-      if (grepInput.value.trim()) parts.push('фильтр «' + grepInput.value.trim() + '»');
-      if (retriesInput && retriesInput.checked) parts.push('с повтором');
-      summaryEl.textContent = 'Будет запущено: ' + parts.join(' · ');
+      parts.push(labels.length ? labels.join(', ') : 'no browser selected');
+      parts.push(specs.length ? specs.length + ' ' + pluralFiles(specs.length) : 'full suite');
+      if (grepInput.value.trim()) parts.push('filter "' + grepInput.value.trim() + '"');
+      if (retriesInput && retriesInput.checked) parts.push('with retry');
+      summaryEl.textContent = 'Will run: ' + parts.join(' · ');
     }
 
     function pluralFiles(n) {
-      var mod10 = n % 10;
-      var mod100 = n % 100;
-      if (mod10 === 1 && mod100 !== 11) return 'файл';
-      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'файла';
-      return 'файлов';
+      return n === 1 ? 'file' : 'files';
     }
 
     // «Весь набор» и категории взаимоисключающие: пустой выбор означает весь набор.
@@ -93,13 +89,13 @@
 
       var browsers = checkedValues('browsers');
       if (browsers.length === 0) {
-        setStatus('error', 'Выберите хотя бы один браузер.');
+        setStatus('error', 'Select at least one browser.');
         return;
       }
 
       var cookies = cookiesInput.value.trim();
       if (cookies !== '' && (cookies.indexOf('=') === -1 || /[\r\n]/.test(cookies))) {
-        setStatus('error', 'Cookies записаны неверно. Нужна строка вида name1=value1; name2=value2.');
+        setStatus('error', 'Cookies are invalid. Use a string like name1=value1; name2=value2.');
         return;
       }
 
@@ -113,7 +109,7 @@
       data.append('retries', retriesInput && retriesInput.checked ? 'true' : 'false');
 
       submitBtn.disabled = true;
-      setStatus('loading', 'Отправляю запуск в GitHub…');
+      setStatus('loading', 'Sending the run to GitHub…');
 
       fetch(imagenQaRunner.ajaxUrl, {
         method: 'POST',
@@ -128,14 +124,14 @@
         .then(function (result) {
           var payload = result.json || {};
           if (payload.success) {
-            setStatus('ok', payload.data && payload.data.message ? payload.data.message : 'Запуск отправлен.');
+            setStatus('ok', payload.data && payload.data.message ? payload.data.message : 'Run sent.');
           } else {
-            var message = payload.data && payload.data.message ? payload.data.message : 'Не получилось запустить прогон.';
+            var message = payload.data && payload.data.message ? payload.data.message : 'The run could not be started.';
             setStatus('error', message);
           }
         })
         .catch(function () {
-          setStatus('error', 'Не удалось отправить запрос. Проверьте интернет и попробуйте ещё раз.');
+          setStatus('error', 'Request failed. Check your connection and try again.');
         })
         .then(function () {
           submitBtn.disabled = false;

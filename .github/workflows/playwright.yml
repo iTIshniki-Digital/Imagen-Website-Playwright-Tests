@@ -12,23 +12,23 @@ on:
   workflow_dispatch:
     inputs:
       browsers:
-        description: 'Браузеры через запятую: chromium, firefox, webkit'
+        description: 'Browsers, comma-separated: chromium, firefox, webkit'
         required: false
         default: 'chromium'
       raw_client_cookies:
-        description: 'Cookie-строка для A/B-варианта: "name1=value1; name2=value2"'
+        description: 'Cookie string for the A/B variant: "name1=value1; name2=value2"'
         required: false
         default: ''
       spec_files:
-        description: 'Конкретные spec-файлы через пробел (пусто = весь набор), напр. tests/homepage.spec.ts'
+        description: 'Specific spec files separated by spaces (empty = full suite), e.g. tests/homepage.spec.ts'
         required: false
         default: ''
       grep:
-        description: 'Фильтр по названию теста (пусто = без фильтра). Только латиница, цифры, пробел и _ . , : ( ) / | -'
+        description: 'Test name filter (empty = no filter). Latin letters, digits, spaces and _ . , : ( ) / | - only'
         required: false
         default: ''
       retries:
-        description: 'Повторить упавшие тесты один раз: true или false'
+        description: 'Retry failed tests once: true or false'
         required: false
         default: 'false'
 jobs:
@@ -65,7 +65,7 @@ jobs:
           b="$(echo "$raw" | xargs)"
           case "$b" in
             chromium|firefox|webkit) args+=("--project=$b") ;;
-            *) echo "Недопустимый браузер: '$b'" >&2; exit 1 ;;
+            *) echo "Invalid browser: '$b'" >&2; exit 1 ;;
           esac
         done
 
@@ -73,7 +73,7 @@ jobs:
           read -ra SPECS <<< "$SPEC_FILES"
           for f in "${SPECS[@]}"; do
             if [[ ! "$f" =~ ^tests/[A-Za-z0-9._-]+\.spec\.ts$ ]]; then
-              echo "Недопустимый файл тестов: '$f'" >&2
+              echo "Invalid test file: '$f'" >&2
               exit 1
             fi
           done
@@ -83,7 +83,7 @@ jobs:
         if [ -n "$GREP" ]; then
           grep_re='^[A-Za-z0-9 _.,:()/|-]{1,120}$'
           if [[ ! "$GREP" =~ $grep_re ]]; then
-            echo "Недопустимый фильтр по названию" >&2
+            echo "Invalid name filter" >&2
             exit 1
           fi
           args+=("--grep" "$GREP")
