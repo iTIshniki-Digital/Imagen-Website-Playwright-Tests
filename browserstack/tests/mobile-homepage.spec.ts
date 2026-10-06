@@ -17,7 +17,8 @@ import { test, expect, Page } from './fixtures';
 // Цепочка воронки — в этом файле, а не импортом из основного набора: тот тянет
 // @playwright/test другой версии (1.63), а здесь 1.49.1.
 
-const PROMO_CLOSE = '.elementor-popup-modal a.dialog-close-button[aria-label="Close"]';
+// :visible — в DOM есть и скрытый дубликат крестика (этот селектор работает и в 1.49).
+const PROMO_CLOSE = '.elementor-popup-modal a.dialog-close-button[aria-label="Close"]:visible';
 const HERO_CTA = 'xpath=//a[contains(@class,"elementor-button") and not(@href) and not(ancestor::header)]';
 
 async function closePromoIfShown(page: Page): Promise<boolean> {

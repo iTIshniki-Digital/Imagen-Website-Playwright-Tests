@@ -85,6 +85,15 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
 // страны увидит доллары и не поймёт, что это фолбэк. Помечено как
 // expected-fail: тест начнёт падать (сигнал убрать пометку), как только
 // клиент это поправит.
+// Предусловие отдельно и без expected-fail: иначе сбой сети внутри помеченного
+// теста выглядел бы как «ожидаемая» находка клиента и не был бы виден.
+test('the API answers both the USD request and the unsupported-currency request', async ({ request }) => {
+  const usd = await fetchPricing(request, 'USD');
+  expect(usd.status, 'USD должна отдаваться с 200').toBe(200);
+  const bogus = await request.get(`${PRICING_API}?currency=XXX`);
+  expect(bogus.status(), 'Запрос с валютой XXX должен получить HTTP-ответ').toBeGreaterThan(0);
+});
+
 test('unsupported currency does not silently fall back to USD prices', async ({ request }) => {
   test.fail(true, 'Клиентская находка: неподдерживаемая валюта молча даёт USD-цены с 200 вместо ошибки');
 

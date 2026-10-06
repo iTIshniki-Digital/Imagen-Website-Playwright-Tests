@@ -13,5 +13,6 @@ test('"Start Free Trial" redirects to the real estate questionnaire', async ({ p
 
   await realEstatePage.clickStartFreeTrial();
 
-  await expect(page).toHaveURL(/\/real-estate-questionnaire\/?$/);
+  // Сайт добавляет к URL трекинг-параметры (_gl, _ga) — регулярка их допускает.
+  await expect(page).toHaveURL(/\/real-estate-questionnaire\/?(\?.*)?$/);
 });

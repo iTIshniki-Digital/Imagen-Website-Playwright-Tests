@@ -9,7 +9,8 @@ import { Page } from '@playwright/test';
 //
 // Поэтому перед работой с виджетом тест ведёт себя как посетитель: двигает
 // курсор и прокручивает колесом, а затем ждёт, пока Elementor поднимется.
-export async function wakeUpPageScripts(page: Page, timeout = 15000): Promise<void> {
+// 30 с: под параллельной нагрузкой (несколько браузеров сразу) Elementor поднимается заметно медленнее.
+export async function wakeUpPageScripts(page: Page, timeout = 30000): Promise<void> {
   await page.mouse.move(300, 300);
   await page.mouse.wheel(0, 150);
   await page.waitForFunction(

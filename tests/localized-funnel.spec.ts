@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import { wakeUpPageScripts } from '../pages/pageActivation';
+import { closePromoPopup } from '../pages/promoPopup';
 
 // checklist #12 — локализованная воронка. Подтверждено вживую 2026-10-05 на всех
 // 8 локалях:
@@ -37,8 +38,7 @@ test.describe('Localized funnel (#12)', () => {
 
       // Попап Elementor (промо) на десктопе тоже может перекрыть hero — закрываем, как
       // на мобильной версии. Если его нет, ничего не делаем.
-      const close = page.locator('.elementor-popup-modal a.dialog-close-button[aria-label="Close"]').first();
-      if (await close.isVisible().catch(() => false)) await close.click();
+      await closePromoPopup(page, 4000);
 
       const cta = page.locator('xpath=//a[contains(@class,"elementor-button") and not(@href) and not(ancestor::header)]').filter({ hasText: /\S/ }).first();
       await expect(cta, `На ${path} не нашлась hero-кнопка без href`).toBeAttached();

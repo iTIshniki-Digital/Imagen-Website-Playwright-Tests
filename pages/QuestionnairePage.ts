@@ -37,6 +37,22 @@ export class QuestionnairePage extends BasePage {
   async answerAllSteps(maxSteps = 60): Promise<number> {
     // Без первого действия пользователя визард не запускается вообще (см. pageActivation.ts).
     await wakeUpPageScripts(this.page);
+    // Визард отрисовывает первый шаг не сразу после запуска JS (в тесте с перехватом
+    // запросов — заметно позже). Ждём появления хотя бы одного варианта или кнопки «далее».
+    await this.page
+      .waitForFunction(
+        () => {
+          const visible = (el: Element) => (el as HTMLElement).getBoundingClientRect().width > 0;
+          const option = Array.from(document.querySelectorAll('.elementor-field-group label')).some(visible);
+          const forward = Array.from(document.querySelectorAll('button')).some(
+            (b) => visible(b) && /^(continue|next|finish setup)$/i.test((b.textContent || '').trim())
+          );
+          return option || forward;
+        },
+        null,
+        { timeout: 20000 }
+      )
+      .catch(() => {});
     await this.dismissCookieBanner();
 
     const startUrl = this.page.url();
@@ -64,10 +80,10 @@ export class QuestionnairePage extends BasePage {
           continue;
         }
 
-        // После запуска визард отрисовывает следующий шаг примерно через 4 с —
-        // поэтому даём до 8 пустых секунд подряд, прежде чем решить, что анкета кончилась.
+        // Между шагами визард может думать несколько секунд (под нагрузкой дольше) —
+        // поэтому даём до 15 пустых секунд подряд, прежде чем решить, что анкета кончилась.
         idle++;
-        if (idle >= 8) break;
+        if (idle >= 15) break;
         await this.page.waitForTimeout(1000);
       }
     } catch (error) {
@@ -131,7 +147,13 @@ export class QuestionnairePage extends BasePage {
     if ((await button.count()) === 0) return false;
     if (!(await button.isEnabled().catch(() => false))) return false;
 
-    await button.click({ timeout: 3000 }).catch(() => {});
-    return true;
+    try {
+      await button.click({ timeout: 3000 });
+      return true;
+    } catch {
+      // Клик не сработал: это не «продвинулись». Возвращаем false, чтобы цикл
+      // увидел простой и не крутился впустую до maxSteps.
+      return false;
+    }
   }
 }

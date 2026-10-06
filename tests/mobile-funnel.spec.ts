@@ -19,6 +19,7 @@ test.use({
 
 test.describe('Mobile funnel (iPhone 13 emulation)', () => {
   test('the mobile hero reaches onboarding in one tap once the promo popup is closed', async ({ page }, testInfo) => {
+    test.setTimeout(90000);
     await page.goto('/', { waitUntil: 'load' });
 
     const onboarding = new MobileOnboardingPage(page);

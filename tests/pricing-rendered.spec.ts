@@ -120,6 +120,19 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
     }
   });
 
+  // Предусловие отдельно: если на немецкой странице нет цен, expected-fail ниже
+  // иначе прошёл бы «ожидаемо» (пустой список не содержит долларов).
+  test('localized /de/pricing/ renders prices (precondition)', async ({ plainPage: page }) => {
+    await page.goto('/de/pricing/');
+    await settle(page);
+    const texts = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[class*="price_"]'))
+        .map((el) => (el.textContent || '').trim())
+        .filter((t) => /\d/.test(t))
+    );
+    expect(texts.length, 'На /de/pricing/ не нашлось ни одной отрендеренной цены').toBeGreaterThan(0);
+  });
+
   test('localized /de/pricing/ shows prices in the local currency, not USD', async ({ plainPage: page }) => {
     test.fail(
       true,
@@ -134,7 +147,6 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
         .map((el) => (el.textContent || '').trim())
         .filter((t) => /\d/.test(t))
     );
-    expect(texts.length, 'На /de/pricing/ не нашлось ни одной отрендеренной цены').toBeGreaterThan(0);
     expect(
       texts.filter((t) => t.includes('$')),
       'На /de/pricing/ цены в долларах, а должны быть в валюте страницы'

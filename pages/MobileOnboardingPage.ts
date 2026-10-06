@@ -1,5 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { closePromoPopup } from './promoPopup';
 
 // Мобильная воронка (checklist #17/#18). Разведка 2026-10-05 показала, что это
 // НЕ та же воронка, что на десктопе: hero-кнопка «Get started» на мобильном —
@@ -29,15 +30,7 @@ export class MobileOnboardingPage extends BasePage {
    * с задержкой, а на страницах без него просто возвращает false.
    */
   async closePromoPopupIfShown(): Promise<boolean> {
-    const close = this.page.locator('.elementor-popup-modal a.dialog-close-button[aria-label="Close"]').first();
-    const shown = await close.waitFor({ state: 'visible', timeout: 6000 }).then(
-      () => true,
-      () => false
-    );
-    if (!shown) return false;
-    await close.click();
-    await close.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-    return true;
+    return closePromoPopup(this.page);
   }
 
   /**
@@ -52,13 +45,16 @@ export class MobileOnboardingPage extends BasePage {
     await cta.scrollIntoViewIfNeeded();
 
     for (let tap = 1; tap <= maxTaps; tap++) {
+      // Прокрутка перед каждым тапом: кнопка ниже сгиба (вьюпорт iPhone 390×664), и без неё
+      // координаты указывают за экран — тап уходит мимо, как и было в прогонах 2026-10-06.
+      await cta.scrollIntoViewIfNeeded();
       const box = await cta.boundingBox();
       if (!box) throw new Error('hero-кнопка скрыта — не могу тапнуть');
       // Клик мышью по координатам: touchscreen.tap на этой странице не давал
       // перехода, пока попап перекрывал кнопку.
       await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       try {
-        await this.page.waitForURL(/\/q\//, { timeout: 5000 });
+        await this.page.waitForURL(/\/q\//, { timeout: 8000 });
         return tap;
       } catch {
         // первый тап проигнорирован — повторяем

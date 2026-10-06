@@ -1,0 +1,128 @@
+import { devices } from '@playwright/test';
+import { test, expect } from './fixtures';
+import urlSweepList from '../data/url-sweep-list.json';
+
+// checklist #20 — проверки, которые специфичны для iOS и для касания/клавиатуры.
+// Тесты на эмуляции iPhone 13 в обычных браузерах; реальный iPhone — в browserstack/.
+//
+// Пороги:
+// - тач-цели: WCAG 2.2 AA требует 24×24 CSS px; рекомендация Apple — 44 pt.
+//   Проверяем 24 px как обязательный минимум и печатаем, сколько кнопок ниже 44.
+//   Считаем только кнопки с фоном: текстовые ссылки в строке WCAG не регулирует.
+// - автоплей: iOS Safari запускает видео без звука в строке только при атрибутах
+//   muted и playsinline. Без playsinline видео открывается на весь экран или не стартует.
+
+const KEY_PAGES = ['/', ...urlSweepList.urlsToCheck.map((p) => p.path)];
+
+// defaultBrowserType из устройства убираем: Playwright запрещает его внутри describe
+// (он принудительно создаёт отдельный worker). Браузер задаёт проект, а не этот тест.
+const { defaultBrowserType: _ignoredBrowser, ...IPHONE_13 } = devices['iPhone 13'];
+
+test.describe('Mobile touch and autoplay on iPhone (#20)', () => {
+  test.use(IPHONE_13);
+
+  test('solid primary buttons are at least 24 px high (WCAG 2.2 AA)', async ({ page }) => {
+    for (const path of ['/', '/pricing/']) {
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForTimeout(1500);
+
+      const buttons = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('a.elementor-button, button.elementor-button'))
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            const bg = getComputedStyle(el).backgroundColor;
+            return r.width > 0 && r.height > 0 && bg !== 'rgba(0, 0, 0, 0)' && !el.closest('header, footer, nav, .pojo-a11y-toolbar');
+          })
+          .map((el) => ({
+            text: (el.textContent || '').trim().slice(0, 30),
+            height: Math.round(el.getBoundingClientRect().height),
+          }))
+      );
+
+      expect(buttons.length, `На ${path} не нашлось ни одной кнопки с фоном`).toBeGreaterThan(0);
+      const tooSmall = buttons.filter((b) => b.height < 24);
+      expect(tooSmall, `На ${path} кнопки ниже 24 px: ${JSON.stringify(tooSmall)}`).toEqual([]);
+
+      const below44 = buttons.filter((b) => b.height < 44).length;
+      test.info().annotations.push({ type: `buttons-below-44px-${path}`, description: String(below44) });
+    }
+  });
+
+  for (const path of KEY_PAGES) {
+    test(`autoplay videos on ${path} are muted and playsinline`, async ({ page, browserName }) => {
+      // DOM-проверка не зависит от движка: достаточно одного браузера.
+      test.skip(browserName !== 'chromium', 'DOM-проверка: достаточно одного браузера');
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForTimeout(1500);
+
+      const offenders = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('video'))
+          .filter((v) => v.autoplay)
+          .filter((v) => !v.muted || !v.hasAttribute('playsinline'))
+          .map((v) => ({
+            src: (v.currentSrc || v.getAttribute('src') || '').split('/').pop(),
+            muted: v.muted,
+            playsinline: v.hasAttribute('playsinline'),
+          }))
+      );
+
+      expect(
+        offenders,
+        `На ${path} автоплей-видео без muted или playsinline — на iPhone не стартует в строке: ${JSON.stringify(offenders)}`
+      ).toEqual([]);
+    });
+  }
+});
+
+test.describe('Keyboard and screen-reader basics (#20)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('tabbing through the homepage shows a visible focus ring on most stops', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'load' });
+    await page.waitForTimeout(1500);
+
+    const stops: boolean[] = [];
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press('Tab');
+      const ring = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) return null;
+        const cs = getComputedStyle(el);
+        return (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow !== '' && cs.boxShadow !== 'none');
+      });
+      if (ring !== null) stops.push(ring);
+    }
+
+    expect(stops.length, 'Клавиша Tab не переводит фокус на элементы страницы').toBeGreaterThan(10);
+    const withRing = stops.filter(Boolean).length;
+    expect(withRing / stops.length, `Видимый фокус только у ${withRing} из ${stops.length} остановок Tab`).toBeGreaterThanOrEqual(0.8);
+  });
+
+  for (const path of KEY_PAGES) {
+    test(`every visible link on ${path} has an accessible name`, async ({ page, browserName }) => {
+      // DOM-проверка не зависит от движка: достаточно одного браузера.
+      test.skip(browserName !== 'chromium', 'DOM-проверка: достаточно одного браузера');
+      await page.goto(path, { waitUntil: 'load' });
+      await page.waitForTimeout(1500);
+
+      const unnamed = await page.evaluate(() => {
+        const out: string[] = [];
+        for (const a of Array.from(document.querySelectorAll('a[href]'))) {
+          const r = a.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          const name = (
+            a.getAttribute('aria-label') ||
+            (a as HTMLElement).innerText ||
+            a.getAttribute('title') ||
+            Array.from(a.querySelectorAll('img')).map((i) => i.alt).join(' ') ||
+            ''
+          ).trim();
+          if (!name) out.push(a.getAttribute('href') || '');
+        }
+        return out;
+      });
+
+      expect(unnamed, `На ${path} видимые ссылки без имени (скринридер скажет только «ссылка»): ${JSON.stringify(unnamed)}`).toEqual([]);
+    });
+  }
+});
