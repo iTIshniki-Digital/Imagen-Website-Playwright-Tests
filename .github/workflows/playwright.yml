@@ -5,7 +5,10 @@ on:
   # без участия пользователя и забивали лимит хранилища артефактов.
   # inputs ниже доступны и в форме "Run workflow" на GitHub, и через
   # GitHub API (POST .../actions/workflows/playwright.yml/dispatches) —
-  # тем же способом сайт-форма сможет запускать прогон с параметрами.
+  # тем же способом работает форма на сайте (wordpress-plugin/).
+  #
+  # Важно: если появляется новый input, сначала пушим этот файл, и только потом
+  # обновляем плагин. GitHub отвечает 422 на неизвестные inputs.
   workflow_dispatch:
     inputs:
       browsers:
@@ -20,6 +23,14 @@ on:
         description: 'Конкретные spec-файлы через пробел (пусто = весь набор), напр. tests/homepage.spec.ts'
         required: false
         default: ''
+      grep:
+        description: 'Фильтр по названию теста (пусто = без фильтра). Только латиница, цифры, пробел и _ . , : ( ) / | -'
+        required: false
+        default: ''
+      retries:
+        description: 'Повторить упавшие тесты один раз: true или false'
+        required: false
+        default: 'false'
 jobs:
   test:
     timeout-minutes: 60
@@ -39,17 +50,51 @@ jobs:
         RAW_CLIENT_COOKIES: ${{ inputs.raw_client_cookies }}
         BROWSERS: ${{ inputs.browsers }}
         SPEC_FILES: ${{ inputs.spec_files }}
+        GREP: ${{ inputs.grep }}
+        RETRIES: ${{ inputs.retries }}
       # Значения из inputs идут через env, а не через ${{ }} прямо в скрипт —
-      # это не даёт содержимому полей сломать/подменить команду (важно,
-      # т.к. в будущем эти поля будет заполнять форма на сайте, а не только
-      # человек в GitHub UI).
+      # содержимое полей не может подменить команду. Каждое значение дополнительно
+      # проверяется здесь по белому списку: форма на сайте уже проверяет его, но
+      # прогон можно запустить и вручную, поэтому защита стоит и тут.
       run: |
-        PROJECT_FLAGS=""
+        set -euo pipefail
+        args=()
+
         IFS=',' read -ra BROWSER_LIST <<< "$BROWSERS"
-        for b in "${BROWSER_LIST[@]}"; do
-          PROJECT_FLAGS="$PROJECT_FLAGS --project=$(echo "$b" | xargs)"
+        for raw in "${BROWSER_LIST[@]}"; do
+          b="$(echo "$raw" | xargs)"
+          case "$b" in
+            chromium|firefox|webkit) args+=("--project=$b") ;;
+            *) echo "Недопустимый браузер: '$b'" >&2; exit 1 ;;
+          esac
         done
-        npx playwright test $PROJECT_FLAGS $SPEC_FILES
+
+        if [ -n "$SPEC_FILES" ]; then
+          read -ra SPECS <<< "$SPEC_FILES"
+          for f in "${SPECS[@]}"; do
+            if [[ ! "$f" =~ ^tests/[A-Za-z0-9._-]+\.spec\.ts$ ]]; then
+              echo "Недопустимый файл тестов: '$f'" >&2
+              exit 1
+            fi
+          done
+          args+=("${SPECS[@]}")
+        fi
+
+        if [ -n "$GREP" ]; then
+          grep_re='^[A-Za-z0-9 _.,:()/|-]{1,120}$'
+          if [[ ! "$GREP" =~ $grep_re ]]; then
+            echo "Недопустимый фильтр по названию" >&2
+            exit 1
+          fi
+          args+=("--grep" "$GREP")
+        fi
+
+        if [ "$RETRIES" = "true" ]; then
+          args+=("--retries=1")
+        fi
+
+        echo "npx playwright test ${args[*]}"
+        npx playwright test "${args[@]}"
     - name: Zip report
       if: ${{ !cancelled() }}
       run: zip -r playwright-report.zip playwright-report/

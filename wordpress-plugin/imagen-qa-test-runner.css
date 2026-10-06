@@ -1,0 +1,323 @@
+/* Imagen QA Test Runner — «яичный» вид: белок (фон), желток (акцент). */
+
+.imagen-qa-runner {
+  --iqr-white: #fffdf7;
+  --iqr-yolk: #f5b301;
+  --iqr-yolk-deep: #d99700;
+  --iqr-yolk-soft: #fff3c4;
+  --iqr-ink: #2b2111;
+  --iqr-muted: #7a6a4f;
+  --iqr-line: #eee2bf;
+  --iqr-ok-bg: #e5f5ea;
+  --iqr-ok-ink: #1d6b3b;
+  --iqr-err-bg: #fde8e3;
+  --iqr-err-ink: #a23b22;
+  --iqr-load-bg: #fff4cc;
+  --iqr-load-ink: #7a5600;
+
+  box-sizing: border-box;
+  max-width: 640px;
+  margin: 28px auto;
+  padding: 28px;
+  background: var(--iqr-white);
+  border: 1px solid var(--iqr-line);
+  border-radius: 32px;
+  box-shadow: 0 24px 48px -28px rgba(120, 80, 0, 0.45);
+  color: var(--iqr-ink);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.imagen-qa-runner *,
+.imagen-qa-runner *::before,
+.imagen-qa-runner *::after {
+  box-sizing: border-box;
+}
+
+.imagen-qa-runner--locked {
+  padding: 20px 24px;
+  color: var(--iqr-muted);
+}
+
+/* Шапка с «яйцом» */
+.imagen-qa-runner .iqr-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.imagen-qa-runner .iqr-egg {
+  flex: 0 0 auto;
+  position: relative;
+  width: 64px;
+  height: 78px;
+  border-radius: 50% 50% 48% 48% / 60% 60% 40% 40%;
+  background: radial-gradient(circle at 40% 35%, #ffffff 0%, #fffbef 55%, #f7ead0 100%);
+  border: 1px solid var(--iqr-line);
+  box-shadow: inset 0 -6px 12px rgba(180, 120, 0, 0.12);
+}
+
+.imagen-qa-runner .iqr-egg span {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd84d 0%, var(--iqr-yolk) 60%, var(--iqr-yolk-deep) 100%);
+  box-shadow: 0 2px 6px rgba(170, 110, 0, 0.35);
+}
+
+.imagen-qa-runner .iqr-title {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--iqr-ink);
+}
+
+.imagen-qa-runner .iqr-lead {
+  margin: 0;
+  color: var(--iqr-muted);
+  font-size: 14px;
+}
+
+/* Секции */
+.imagen-qa-runner .iqr-section {
+  margin: 0 0 20px;
+}
+
+.imagen-qa-runner .iqr-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iqr-muted);
+}
+
+.imagen-qa-runner .iqr-optional {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #a79877;
+}
+
+/* Чипы-переключатели */
+.imagen-qa-runner .iqr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.imagen-qa-runner .iqr-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1.5px solid var(--iqr-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--iqr-ink);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+
+.imagen-qa-runner .iqr-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.imagen-qa-runner .iqr-chip:hover {
+  border-color: var(--iqr-yolk);
+}
+
+.imagen-qa-runner .iqr-chip:has(input:checked) {
+  background: var(--iqr-yolk-soft);
+  border-color: var(--iqr-yolk);
+  font-weight: 600;
+}
+
+.imagen-qa-runner .iqr-chip:has(input:focus-visible) {
+  outline: 2px solid var(--iqr-yolk-deep);
+  outline-offset: 2px;
+}
+
+/* Расширенные настройки */
+.imagen-qa-runner .iqr-advanced {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px dashed var(--iqr-line);
+  border-radius: 18px;
+  background: #fffcf1;
+}
+
+.imagen-qa-runner .iqr-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--iqr-ink);
+}
+
+.imagen-qa-runner .iqr-field {
+  margin: 14px 0 0;
+}
+
+.imagen-qa-runner .iqr-field label {
+  display: block;
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.imagen-qa-runner .iqr-field small,
+.imagen-qa-runner .iqr-check small {
+  display: block;
+  margin-top: 4px;
+  color: var(--iqr-muted);
+  font-size: 12.5px;
+}
+
+.imagen-qa-runner .iqr-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.imagen-qa-runner .iqr-check input {
+  margin-top: 4px;
+  accent-color: var(--iqr-yolk-deep);
+  width: 16px;
+  height: 16px;
+}
+
+/* Поля ввода */
+.imagen-qa-runner input[type="text"],
+.imagen-qa-runner textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--iqr-line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--iqr-ink);
+  font: inherit;
+  font-size: 14px;
+  box-shadow: none;
+}
+
+.imagen-qa-runner textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.imagen-qa-runner input[type="text"]:focus,
+.imagen-qa-runner textarea:focus {
+  outline: none;
+  border-color: var(--iqr-yolk);
+  box-shadow: 0 0 0 3px rgba(245, 179, 1, 0.25);
+}
+
+/* Сводка, кнопка, статус */
+.imagen-qa-runner .iqr-summary {
+  margin: 4px 0 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #faf4e1;
+  color: var(--iqr-muted);
+  font-size: 13.5px;
+}
+
+.imagen-qa-runner .iqr-submit {
+  display: block;
+  width: 100%;
+  height: 54px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffc233 0%, var(--iqr-yolk) 100%);
+  color: #2b1d00;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -10px rgba(190, 120, 0, 0.7), inset 0 -2px 0 rgba(160, 100, 0, 0.25);
+  transition: transform 0.08s, filter 0.15s;
+}
+
+.imagen-qa-runner .iqr-submit:hover {
+  filter: brightness(1.04);
+}
+
+.imagen-qa-runner .iqr-submit:active {
+  transform: translateY(1px);
+}
+
+.imagen-qa-runner .iqr-submit:focus-visible {
+  outline: 3px solid var(--iqr-yolk-deep);
+  outline-offset: 3px;
+}
+
+.imagen-qa-runner .iqr-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+  filter: none;
+}
+
+.imagen-qa-runner .iqr-status {
+  display: none;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.imagen-qa-runner .iqr-status:not(:empty) {
+  display: block;
+  background: #f5f1e6;
+  color: var(--iqr-muted);
+}
+
+.imagen-qa-runner .iqr-status--ok {
+  background: var(--iqr-ok-bg);
+  color: var(--iqr-ok-ink);
+}
+
+.imagen-qa-runner .iqr-status--error {
+  background: var(--iqr-err-bg);
+  color: var(--iqr-err-ink);
+}
+
+.imagen-qa-runner .iqr-status--loading {
+  background: var(--iqr-load-bg);
+  color: var(--iqr-load-ink);
+}
+
+.imagen-qa-runner .iqr-last {
+  margin: 16px 0 0;
+  text-align: center;
+  color: #a08c66;
+  font-size: 12.5px;
+}
+
+@media (max-width: 480px) {
+  .imagen-qa-runner {
+    margin: 12px;
+    padding: 20px;
+    border-radius: 24px;
+  }
+  .imagen-qa-runner .iqr-head {
+    align-items: flex-start;
+  }
+}
