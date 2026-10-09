@@ -36,7 +36,12 @@ export default defineConfig({
   // GitHub Actions это критично для диагностики: default-репортер там
   // буферизует прогресс одним куском ближе к концу прогона, из-за чего
   // непонятно, что происходит, пока весь job не закончится.
-  reporter: process.env.CI ? [['html'], ['line']] : 'html',
+  // 'json' — только на CI: по нему scripts/publish-qa-dashboard-run.js
+  // строит разбивку по категориям дашборда и собирает скриншоты упавших
+  // тестов. Локально не нужен — не засоряем репозиторий файлом отчёта.
+  reporter: process.env.CI
+    ? [['html'], ['line'], ['json', { outputFile: 'playwright-report/results.json' }]]
+    : 'html',
   /* Дефолтный таймаут для expect() — 5000ms (стандарт Playwright) оказался
    * слишком тесным для CI: клик по кнопке доходил до реального перехода,
    * но `expect(page).toHaveURL(...)` не успевал дождаться за 5с чисто из-за

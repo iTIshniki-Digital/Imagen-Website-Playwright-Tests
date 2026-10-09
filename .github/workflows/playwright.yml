@@ -109,3 +109,23 @@ jobs:
         GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
         GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+    - name: Publish run to QA Dashboard
+      # Разбирает playwright-report/results.json по категориям клиентского
+      # чек-листа, грузит скриншоты упавших проверок и сводку прогона на
+      # Google Drive (один и тот же файл, см. scripts/publish-qa-dashboard-run.js) —
+      # дашборд (claude.ai Artifact) забирает её сам при открытии.
+      # continue-on-error: пока обкатываем — сбой здесь не должен красить
+      # весь прогон тестов, отчёт на Drive к этому шагу уже загружен.
+      if: ${{ !cancelled() }}
+      continue-on-error: true
+      run: node scripts/publish-qa-dashboard-run.js
+      env:
+        GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+        GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+        GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+        GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        GDRIVE_LATEST_JSON_FILE_ID: ${{ secrets.GDRIVE_LATEST_JSON_FILE_ID }}
+        BROWSERS: ${{ inputs.browsers }}
+        SPEC_FILES: ${{ inputs.spec_files }}
+        GREP: ${{ inputs.grep }}
+        RETRIES: ${{ inputs.retries }}

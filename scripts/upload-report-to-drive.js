@@ -55,6 +55,13 @@ async function uploadReport(drive, folderId) {
 
   console.log(`Отчёт загружен на Google Drive: ${name}`);
   console.log(`Ссылка: https://drive.google.com/file/d/${data.id}/view`);
+
+  // Передаём ссылку следующему шагу CI (scripts/publish-qa-dashboard-run.js)
+  // через $GITHUB_ENV — так дашборд может показать её в карточке прогона.
+  // Локально (без GITHUB_ENV) просто ничего не пишем.
+  if (process.env.GITHUB_ENV) {
+    fs.appendFileSync(process.env.GITHUB_ENV, `REPORT_DRIVE_URL=https://drive.google.com/file/d/${data.id}/view\n`);
+  }
 }
 
 main().catch((err) => {
