@@ -1,0 +1,60 @@
+name: QA test run
+description: Pick what to test on imagen-ai.com — opens a run, no extra steps.
+title: "QA run"
+labels: ["qa-run"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Leave everything unchecked to run the full suite. A workflow picks this up automatically within a minute or so and comments the result back here when it finishes (usually 20–30 minutes).
+  - type: checkboxes
+    id: browsers
+    attributes:
+      label: Browsers
+      description: Leave unchecked for Chrome only (the default, fastest).
+      options:
+        - label: Chrome
+        - label: Firefox
+        - label: Safari (WebKit)
+  - type: checkboxes
+    id: categories
+    attributes:
+      # Варианты ниже должны слово в слово совпадать с именами категорий
+      # в scripts/qa-dashboard-categories.js (name у каждого ключа) —
+      # поменяли там, поменяйте и здесь. См. .github/scripts/handle-qa-run-issue.js,
+      # он сопоставляет эти подписи с файлами тестов по точному совпадению.
+      label: What to check
+      description: Leave everything unchecked to run the full suite.
+      options:
+        - label: "Homepage & Navigation (Desktop 1600px)"
+        - label: "Desktop Signup Flow (full)"
+        - label: "Multi-Language Signup (Rotate)"
+        - label: "Video Page (full flow)"
+        - label: "Mobile (real phone or emulation)"
+        - label: "iOS / Apple Devices"
+        - label: "Pricing (Rotate regions)"
+        - label: "Cross-page Console/HTTP Sweep"
+        - label: "Functional Gaps"
+        - label: "Visual / UX Gaps"
+        - label: "Real Estate Webapp"
+  - type: input
+    id: grep
+    attributes:
+      label: Filter by test name (optional)
+      description: "Latin letters, digits, spaces and _ . , : ( ) / | - only."
+      placeholder: "e.g. pricing|cookie"
+    validations:
+      required: false
+  - type: textarea
+    id: cookies
+    attributes:
+      label: A/B test cookies (optional)
+      placeholder: "name1=value1; name2=value2"
+    validations:
+      required: false
+  - type: checkboxes
+    id: retries
+    attributes:
+      label: Options
+      options:
+        - label: Retry failed tests once — tells a real bug from a random network glitch

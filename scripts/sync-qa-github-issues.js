@@ -137,7 +137,51 @@ function main() {
     }
   }
 
+  writeJobSummary(run);
+
   console.log(`Готово: ${run.totals.failingChecks.length} issue(s) заведено/обновлено, ${passedKeys.size} проверок прошли.`);
+}
+
+// Markdown в $GITHUB_STEP_SUMMARY — GitHub сам рендерит его прямо на
+// странице прогона (вкладка Actions), без захода куда-либо ещё.
+function writeJobSummary(run) {
+  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryFile) return; // не в Actions (локальный запуск) — не пишем
+
+  const t = run.totals;
+  const rows = Object.entries(run.categories)
+    .map(([slug, cat]) => {
+      const checks = cat.checks || [];
+      const passed = checks.filter((c) => c.status === 'passed').length;
+      const failed = checks.filter((c) => c.status === 'failed').length;
+      const skipped = checks.filter((c) => c.status === 'skipped').length;
+      const status = failed ? '❌' : skipped && !passed ? '⚪' : '✅';
+      return `| ${status} ${cat.name} | ${passed} | ${failed} | ${skipped} |`;
+    })
+    .join('\n');
+
+  const tail = [
+    run.reportUrl ? `[Full HTML report (Google Drive)](${run.reportUrl})` : null,
+    t.failed ? `${t.failed} failing check(s) filed/updated as \`${BUG_LABEL}\` issues — see the Issues tab.` : null,
+  ].filter(Boolean);
+
+  const md = [
+    `## QA Run — \`${run.runId}\``,
+    '',
+    `**${t.passed} passed · ${t.failed} failed · ${t.skipped} skipped** out of ${t.total}`,
+    '',
+    '| Category | Passed | Failed | Skipped |',
+    '|---|---|---|---|',
+    rows,
+    '',
+    tail.join('\n\n'),
+  ].join('\n');
+
+  try {
+    fs.appendFileSync(summaryFile, md + '\n');
+  } catch (err) {
+    console.warn(`Не удалось записать job summary: ${err.message}`);
+  }
 }
 
 main();
