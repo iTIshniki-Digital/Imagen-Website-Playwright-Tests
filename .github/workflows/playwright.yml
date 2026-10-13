@@ -150,5 +150,9 @@ jobs:
       continue-on-error: true
       run: node scripts/sync-qa-github-issues.js
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # QA_BOT_TOKEN — см. тот же комментарий в qa-issue-trigger.yml:
+        # "Workflow permissions" у этого репозитория read-only и пока
+        # некому его переключить, PAT этим не ограничен. Фолбэк на
+        # встроенный токен, если секрет когда-нибудь уберут.
+        GH_TOKEN: ${{ secrets.QA_BOT_TOKEN || secrets.GITHUB_TOKEN }}
         SOURCE_ISSUE: ${{ inputs.source_issue }}

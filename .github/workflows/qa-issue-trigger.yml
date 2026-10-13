@@ -23,7 +23,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parse qa-run block and dispatch the test run
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # QA_BOT_TOKEN — personal access token (repo scope), used because
+          # this org/repo's "Workflow permissions" is locked to read-only
+          # and neither an org owner nor a repo admin has flipped it (see
+          # scripts/README-qa-dashboard.md). A PAT isn't capped by that
+          # setting at all, so it works regardless. Falls back to the
+          # built-in token if QA_BOT_TOKEN is ever removed — works too,
+          # once/if that setting is eventually switched to read-and-write.
+          GH_TOKEN: ${{ secrets.QA_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: node .github/scripts/handle-qa-run-issue.js
