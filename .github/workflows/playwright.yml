@@ -31,6 +31,15 @@ on:
         description: 'Retry failed tests once: true or false'
         required: false
         default: 'false'
+      source_issue:
+        description: 'Internal: issue number that requested this run (via the QA dashboard), empty for a manual run'
+        required: false
+        default: ''
+permissions:
+  contents: read
+  # Публикация итогов/багов обратно в Issues — см. шаг "Sync QA bugs to
+  # GitHub Issues" и .github/workflows/qa-issue-trigger.yml.
+  issues: write
 jobs:
   test:
     timeout-minutes: 60
@@ -129,3 +138,17 @@ jobs:
         SPEC_FILES: ${{ inputs.spec_files }}
         GREP: ${{ inputs.grep }}
         RETRIES: ${{ inputs.retries }}
+    - name: Sync QA bugs to GitHub Issues
+      # Заводит/комментирует issue (label qa-bug) на каждую упавшую
+      # проверку со скриншотом и видео, закрывает issues по проверкам,
+      # которые снова прошли, и если прогон запущен из issue
+      # (source_issue — см. .github/workflows/qa-issue-trigger.yml и
+      # дашборд), отчитывается туда и закрывает его.
+      # continue-on-error: та же логика, что у шага публикации в дашборд
+      # выше — не красим весь прогон тестов из-за этого шага.
+      if: ${{ !cancelled() }}
+      continue-on-error: true
+      run: node scripts/sync-qa-github-issues.js
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SOURCE_ISSUE: ${{ inputs.source_issue }}

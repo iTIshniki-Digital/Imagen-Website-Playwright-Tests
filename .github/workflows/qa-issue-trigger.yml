@@ -1,0 +1,29 @@
+name: QA Dashboard — start run from issue
+on:
+  # Дашборд ("Imagen QA Runs", claude.ai Artifact) открывает issue с
+  # телом, содержащим блок ```qa-run {...}``` — см.
+  # .github/scripts/handle-qa-run-issue.js и scripts/README-qa-dashboard.md.
+  # Обычные issues (без этого блока) просто игнорируются — см. скрипт.
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: write
+  # Нужно, чтобы этим же токеном запустить playwright.yml (workflow_dispatch
+  # в том же репозитории) — без этого gh workflow run падает с 403.
+  actions: write
+jobs:
+  dispatch:
+    # github.event.issue.pull_request существует только когда "issue" на
+    # самом деле PR (GitHub шлёт PR-события тоже через issues API) — такие
+    # пропускаем, это не наш случай.
+    if: ${{ !github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse qa-run block and dispatch the test run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: node .github/scripts/handle-qa-run-issue.js
