@@ -2,96 +2,90 @@
 
 Дашборд: https://claude.ai/artifact/4vmBWLsZUtj8W7GTcpCQje ("Imagen QA Runs")
 
-Он не умеет сам найти свежий файл на Google Drive — вместо этого CI каждый
-прогон перезаписывает ОДИН и тот же файл `latest.json`, а дашборд читает его
-по фиксированному id через Drive API. Поэтому нужно один раз создать этот
-файл и сообщить его id и CI, и дашборду. Всего 4 значения, все вводятся в
-вебе, без терминала.
+## Как синк работает на самом деле
+
+Страница claude.ai Artifact (любая, не только эта) не может сделать
+`fetch()`/XHR ни на один внешний хост — ни на Google Drive API, ни на наш
+сайт. Это ограничение песочницы, не баг конкретно этого дашборда. Поэтому:
+
+- **Запуск тестов** — кнопка "Start run" не дёргает GitHub напрямую, она
+  открывает настоящую форму на сайте (`[imagen_qa_test_runner]`) новой
+  вкладкой, с уже выбранными настройками в query-строке — плагин сам их
+  подставляет в чекбоксы (см. `imagen-qa-test-runner.js`,
+  `applyPrefillFromQuery`). Отправка идёт оттуда, через вход в WordPress,
+  тем же путём, что и раньше.
+- **Результаты прогона** (категории, статусы, скриншоты, видео упавших
+  проверок) попадают в дашборд не сами — их туда кладёт Claude, когда его
+  об этом попросят ("синхронизируй дашборд" после того, как прогон
+  закончился). Делает это так:
+  1. Читает `latest.json` с Google Drive по его файлу (публичная ссылка,
+     без ключей — `scripts/fetch-qa-dashboard-run.js <file-id>` скачивает
+     и его, и все скриншоты/видео упавших проверок локально).
+  2. Каждый файл грузит в хранилище ассетов самого артефакта (Artifact
+     `action: "upload_asset"`) — так они отдаются с того же домена, что и
+     сама страница, и реально показываются (внешний `<img>`/`<video>` тоже
+     заблокирован песочницей).
+  3. Пишет прогон в `runs`, заводит баги по упавшим проверкам в `bugs`
+     (пропуская дубликаты по `checkKey`, если баг уже открыт), закрывает
+     баги, чьи проверки снова прошли, обновляет `meta/sync` — через
+     Artifact `action: "write_db"`.
+
+Руками в браузере при этом по-прежнему работает: завести баг вручную
+(вкладка Open Bugs, можно сразу приложить файл — это идёт через `assets`,
+не внешний fetch, так что работает), отметить баг исправленным/снова
+открытым, полистать историю прогонов. Не работает и не будет: кнопка
+"Sync" прямо на странице — её нет специально, синк теперь только через
+просьбу Claude.
 
 ## 1. Создать фиксированный файл latest.json на Drive
 
 1. Откройте ту же папку Google Drive, куда уже падают отчёты (куда
-   указывает секрет `GDRIVE_FOLDER_ID` в GitHub — это тот же аккаунт/папка,
-   что для `scripts/upload-report-to-drive.js`).
-2. Создайте в ней пустой текстовый файл с содержимым `{}` и назовите его
-   `latest.json` (Google Drive → New → File upload, или New → Google
-   Docs → переименовать и экспортировать — главное, чтобы в папке лежал
-   файл с любым валидным JSON-содержимым; CI полностью перезапишет его
-   при первом прогоне).
-3. Откройте файл, скопируйте его id из адресной строки:
+   указывает секрет `GDRIVE_FOLDER_ID` в GitHub).
+2. Создайте в ней пустой файл с содержимым `{}`, назовите `latest.json`.
+3. Скопируйте его id из адресной строки:
    `https://drive.google.com/file/d/`**`ВОТ_ЭТОТ_ID`**`/view`.
 4. GitHub → репозиторий → Settings → Secrets and variables → Actions →
    New repository secret → имя `GDRIVE_LATEST_JSON_FILE_ID`, значение —
    этот id.
+5. Тот же id вставьте в сам дашборд: вкладка Run Tests → Dashboard
+   settings → "Google Drive file ID (latest.json)" → Save settings
+   (нужны права Editor на артефакт).
 
 После этого шага CI начнёт публиковать результаты каждого прогона в этот
-файл (см. `scripts/publish-qa-dashboard-run.js`) — сам прогон тестов при
-этом ничего не ломает, даже если что-то тут настроено неверно
+файл (`scripts/publish-qa-dashboard-run.js`) — сам прогон тестов при этом
+ничего не ломает, даже если что-то тут настроено неверно
 (`continue-on-error: true` в воркфлоу).
 
-## 2. Создать Drive API-ключ только на чтение
+Google API-ключ создавать не нужно — файл публичный ("anyone with the
+link"), Claude читает его обычной ссылкой.
 
-Дашборд — страница в браузере, у неё нет доступа к тем же GitHub-секретам,
-что у CI. Чтобы прочитать `latest.json`, ей нужен отдельный, ограниченный
-ключ:
+## 2. Собрать и загрузить плагин WordPress (если ещё не обновлён)
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → тот же
-   проект, что уже используется для OAuth-токена отчётов (там же, где
-   выписывались `GDRIVE_CLIENT_ID`/`GDRIVE_CLIENT_SECRET`).
-2. APIs & Services → Library → найдите **Google Drive API** → Enable
-   (если ещё не включено).
-3. APIs & Services → Credentials → Create Credentials → API key.
-4. Сразу ограничьте ключ (Edit API key):
-   - **API restrictions** → Restrict key → только Google Drive API.
-   - **Application restrictions** → HTTP referrers → добавьте
-     `https://claude.ai/*`.
-5. Скопируйте ключ.
+Плагин `wordpress-plugin/imagen-qa-test-runner.php`, версия 1.3.0.
+Загрузите zip через Plugins → Add New → Upload Plugin → Replace current
+with uploaded.
 
-Это ключ только на ЧТЕНИЕ публичных файлов Drive API (сам файл
-`latest.json` должен быть расшарен как "Anyone with the link" — скрипт
-`publish-qa-dashboard-run.js` делает это сам при каждой публикации) — он
-не даёт доступа ни к чему приватному в аккаунте.
+## 3. Указать дашборду, какую страницу открывать
 
-## 3. Собрать и загрузить плагин WordPress (если ещё не обновлён)
-
-Плагин `wordpress-plugin/imagen-qa-test-runner.php` версии 1.2.0 добавляет
-отдельный REST-вход для дашборда (без логина в WordPress, по ключу). Если
-на сайте ещё стоит более старая версия — загрузите новый zip (см. в конце
-сообщения, где его взять) через Plugins → Add New → Upload Plugin →
-Replace current with uploaded.
-
-После обновления откройте WordPress admin → Settings → Imagen QA Runner —
-там появился новый блок **"QA Dashboard access"** с двумя значениями:
-**Endpoint URL** и **Dashboard key**.
-
-## 4. Вставить все 4 значения в сам дашборд
-
-Откройте дашборд → вкладка **Run Tests** → карточка **Dashboard settings**
-внизу страницы, впишите:
-
-| Поле в дашборде | Откуда взять |
-|---|---|
-| WordPress REST endpoint | Settings → Imagen QA Runner → "Endpoint URL" |
-| Dashboard key | Settings → Imagen QA Runner → "Dashboard key" |
-| Google Drive file ID (latest.json) | id из шага 1 |
-| Google API key (Drive, read-only) | ключ из шага 2 |
-
-Save settings — всё хранится в данных самого артефакта, не в коде
-страницы, так что при смене ключа (например, после "Regenerate key" в
-WordPress) достаточно поправить значение тут же, без обращения ко мне.
+Вкладка Run Tests → Dashboard settings → "Test-runner page URL" — адрес
+страницы сайта, где вставлен шорткод `[imagen_qa_test_runner]` (та самая
+форма). Save settings.
 
 ## Дальше само
 
-- **Start run** (вкладка Run Tests) — запускает прогон через тот же
-  GitHub Actions workflow, что и форма на сайте.
-- **Sync from Drive** (кнопка в шапке) — подтягивает последний
-  опубликованный прогон и раскладывает его по категориям; падающие
-  проверки сами попадают во вкладку **Open Bugs**, а при следующем
-  успешном прогоне, где та же проверка прошла, помечаются как fixed
-  автоматически.
-- Категории — это категории ручного чек-листа клиента (дашборд
-  `marketing-server/services/qa-dashboard`), слово в слово: тот же список
-  должен совпадать в трёх местах — `scripts/qa-dashboard-categories.js`,
-  `wordpress-plugin/imagen-qa-test-runner.php` (`imagen_qa_scopes`) и в
-  самом дашборде (константа `CATEGORIES` в его HTML). Поменяли один —
+- **Start run** — открывает эту страницу новой вкладкой с уже выбранными
+  браузерами/категориями/фильтрами; запуск подтверждается там же, входом
+  в WordPress.
+- Попросить Claude **"синхронизируй QA-дашборд"** после того, как прогон
+  закончился (обычно 20–30 минут) — подтянет категории, статусы, баги,
+  скриншоты и видео.
+- Категории — категории ручного чек-листа клиента (дашборд
+  `marketing-server/services/qa-dashboard`), слово в слово. Список должен
+  совпадать в ТРЁХ местах: `scripts/qa-dashboard-categories.js`,
+  `wordpress-plugin/imagen-qa-test-runner.php` (`imagen_qa_scopes`) и
+  константа `CATEGORIES` в самом дашборде (его HTML). Поменяли один —
   поменяйте все три.
+- Доступ клиенту — только через Share → Invite people (конкретный email),
+  никогда "Anyone with the link". Подробности и выбор роли
+  (Contributor/Viewer) — см. историю переписки или просто спросите Claude
+  ещё раз, он объяснит заново.

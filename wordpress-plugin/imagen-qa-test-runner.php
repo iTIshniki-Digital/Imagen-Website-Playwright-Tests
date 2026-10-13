@@ -2,14 +2,14 @@
 /**
  * Plugin Name: Imagen QA Test Runner
  * Description: Форма для запуска Playwright-тестов imagen-ai.com через GitHub Actions, без захода в GitHub. Вставляется шорткодом [imagen_qa_test_runner].
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('IMAGEN_QA_VERSION', '1.2.0');
+define('IMAGEN_QA_VERSION', '1.3.0');
 define('IMAGEN_QA_REPO', 'iTishnikiDigital/Imagen-Website-Playwright-Tests');
 define('IMAGEN_QA_WORKFLOW', 'playwright.yml');
 define('IMAGEN_QA_BRANCH', 'main');
@@ -248,8 +248,8 @@ function imagen_qa_render_settings_page() {
             </form>
         <?php endif; ?>
 
-        <h2>QA Dashboard access</h2>
-        <p>The QA Dashboard (a separate page, not on this site) starts runs through its own endpoint and key — it has no WordPress login, so it cannot use the form above. Put these two values into the dashboard's settings.</p>
+        <h2>QA Dashboard access (currently unused)</h2>
+        <p>The QA Dashboard (a separate page, not on this site) opens the form above in a new tab, prefilled, instead of calling this endpoint — its own page can't reach any outside URL directly. Kept working in case something else needs it later; nothing needs these two values right now.</p>
         <?php echo $key_notice; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- собственная разметка выше ?>
         <table class="form-table">
             <tr>
@@ -525,13 +525,23 @@ function imagen_qa_handle_run_test() {
 /* ---------------------------------------------------------------------------
  * Обработчик запуска через дашборд (REST, ключ вместо логина в WordPress).
  *
+ * ПОКА НЕ ИСПОЛЬЗУЕТСЯ дашбордом (claude.ai Artifact) — оставлено рабочим
+ * на будущее. Выяснилось (2026-10-13), что страница Artifact не может
+ * сделать fetch()/XHR ни на один внешний хост — её JS физически не может
+ * дёрнуть этот (или любой другой) REST-эндпоинт напрямую. Дашборд вместо
+ * этого открывает настоящую форму на сайте новой вкладкой с префиллом
+ * (см. imagen-qa-test-runner.js, applyPrefillFromQuery) — отправка идёт
+ * через imagen_qa_handle_run_test ниже, как и раньше. Маршрут ниже рабочий
+ * и покрыт тестами, просто сейчас его некому вызвать; может пригодиться
+ * для другого клиента запросов (отдельный MCP-коннектор, Zapier и т.п.).
+ *
  * Дашборд — страница на claude.ai (Artifact), у неё не бывает сессии
  * WordPress и нет способа безопасно хранить GitHub-токен на своей стороне
  * (её JS виден любому с доступом к странице). Поэтому здесь — отдельный
  * общий секрет (imagen_qa_dashboard_key, см. настройки плагина), известный
- * только этому эндпоинту и встроенный в код дашборда. Его компрометация
- * позволяет только ЗАПУСКАТЬ прогоны тестов (с лимитом раз в 2 минуты) —
- * не читает и не пишет ничего в GitHub и не имеет доступа к токену.
+ * только этому эндпоинту. Его компрометация позволяет только ЗАПУСКАТЬ
+ * прогоны тестов (с лимитом раз в 2 минуты) — не читает и не пишет ничего
+ * в GitHub и не имеет доступа к токену.
  * ------------------------------------------------------------------------ */
 
 function imagen_qa_get_dashboard_key() {

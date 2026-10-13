@@ -1,8 +1,8 @@
 // Читает JSON-отчёт Playwright (см. playwright.config.ts, репортер 'json'),
 // группирует результаты по категориям клиентского чек-листа
-// (qa-dashboard-categories.js), грузит скриншоты упавших тестов на Google
-// Drive и перезаписывает один и тот же файл latest.json на Drive — его
-// забирает наш дашборд (claude.ai Artifact) при открытии.
+// (qa-dashboard-categories.js), грузит скриншоты и видео упавших тестов на
+// Google Drive и перезаписывает один и тот же файл latest.json на Drive —
+// его забирает наш дашборд (claude.ai Artifact) при открытии.
 //
 // Почему "перезаписывает один и тот же файл", а не создаёт новый каждый
 // раз: у Artifact-страницы нет способа найти "последний" файл в папке Drive
@@ -71,28 +71,49 @@ async function main() {
       `(${run.totals.total} всего, ${run.totals.failingChecks.length} упавших проверок)`
   );
 
-  // Скриншоты упавших проверок — каждый отдельным файлом, "anyone with
-  // link" (иначе дашборд, открытый не из того же Google-аккаунта, не
-  // сможет отрисовать <img>). Это меняет режим доступа именно для этих
-  // файлов — zip с полным отчётом остаётся закрытым, как раньше.
+  // Скриншоты и видео упавших проверок — каждый отдельным файлом, "anyone
+  // with link" (иначе дашборд, открытый не из того же Google-аккаунта, не
+  // сможет их показать). Это меняет режим доступа именно для этих файлов —
+  // zip с полным отчётом остаётся закрытым, как раньше.
+  //
+  // Видео — ссылкой на штатный просмотрщик Drive (.../file/d/<id>/view), а
+  // не прямым <video src>: прямые ссылки на Drive не всегда отдают
+  // byte-range (нужен для перемотки), просмотрщик это уже решает сам и
+  // гарантированно проигрывает файл в любом браузере.
   for (const check of run.totals.failingChecks) {
-    if (!check.screenshotPath || !fs.existsSync(check.screenshotPath)) continue;
-    try {
-      const { data } = await drive.files.create({
-        requestBody: { name: `${run.runId}__${check.key}.png`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [folderId] },
-        media: { mimeType: 'image/png', body: fs.createReadStream(check.screenshotPath) },
-        fields: 'id',
-      });
-      await drive.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
-      check.screenshotUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
-    } catch (err) {
-      console.warn(`Не удалось загрузить скриншот для ${check.key}: ${err.message}`);
+    if (check.screenshotPath && fs.existsSync(check.screenshotPath)) {
+      try {
+        const { data } = await drive.files.create({
+          requestBody: { name: `${run.runId}__${check.key}.png`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [folderId] },
+          media: { mimeType: 'image/png', body: fs.createReadStream(check.screenshotPath) },
+          fields: 'id',
+        });
+        await drive.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
+        check.screenshotUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
+      } catch (err) {
+        console.warn(`Не удалось загрузить скриншот для ${check.key}: ${err.message}`);
+      }
     }
     delete check.screenshotPath; // локальный путь не нужен в итоговом JSON
+
+    if (check.videoPath && fs.existsSync(check.videoPath)) {
+      try {
+        const { data } = await drive.files.create({
+          requestBody: { name: `${run.runId}__${check.key}.webm`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [folderId] },
+          media: { mimeType: 'video/webm', body: fs.createReadStream(check.videoPath) },
+          fields: 'id',
+        });
+        await drive.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
+        check.videoUrl = `https://drive.google.com/file/d/${data.id}/view`;
+      } catch (err) {
+        console.warn(`Не удалось загрузить видео для ${check.key}: ${err.message}`);
+      }
+    }
+    delete check.videoPath; // локальный путь не нужен в итоговом JSON
   }
-  // screenshotPath временный и есть только у объектов из failingChecks;
-  // сами check-объекты внутри run.categories — те же ссылки, так что
-  // screenshotUrl, записанный выше, уже попал туда.
+  // screenshotPath/videoPath временные и есть только у объектов из
+  // failingChecks; сами check-объекты внутри run.categories — те же ссылки,
+  // так что screenshotUrl/videoUrl, записанные выше, уже попали туда.
 
   const jsonBody = JSON.stringify(run, null, 0);
   await drive.files.update({
@@ -113,7 +134,7 @@ function bufferStream(text) {
 }
 
 function buildRunSummary(report) {
-  const checksByKey = new Map(); // key -> { key, title, file, category, projects: {}, screenshotPath, screenshotUrl }
+  const checksByKey = new Map(); // key -> { key, title, file, category, projects: {}, screenshotPath, screenshotUrl, videoPath, videoUrl }
 
   for (const spec of iterateSpecs(report.suites || [])) {
     const slug = categoryForFile(spec.file);
@@ -150,6 +171,11 @@ function buildRunSummary(report) {
       if (status === 'failed') {
         const shot = (last.attachments || []).find((a) => a.name === 'screenshot' && a.path);
         if (shot && !check.screenshotPath) check.screenshotPath = shot.path;
+        // 'video' — вложение только когда playwright.config.ts пишет video
+        // (у нас 'retain-on-failure': записывается для каждого теста, но
+        // остаётся только у упавших — так что здесь он есть почти всегда).
+        const vid = (last.attachments || []).find((a) => a.name === 'video' && a.path);
+        if (vid && !check.videoPath) check.videoPath = vid.path;
       }
     }
   }

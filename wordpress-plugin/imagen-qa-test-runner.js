@@ -84,6 +84,39 @@
     form.addEventListener('change', updateSummary);
     form.addEventListener('input', updateSummary);
 
+    // Префилл из query-строки — так на эту форму может сослаться QA-дашборд
+    // (claude.ai Artifact). Сам дашборд не может дернуть GitHub напрямую
+    // (песочница артефакта не пускает fetch/XHR ни на один внешний хост,
+    // только навигацию), поэтому вместо прямого запуска он открывает эту
+    // страницу новой вкладкой с уже выбранными настройками — отправка
+    // всё равно идёт тем же, уже рабочим путём: вход в WordPress + nonce.
+    // Поддерживаемые параметры: ?browsers=chromium,firefox&specs=tests/a.spec.ts%20tests/b.spec.ts&grep=...&cookies=...&retries=true
+    (function applyPrefillFromQuery() {
+      var params;
+      try { params = new URLSearchParams(window.location.search); } catch (e) { return; }
+      if (!params.has('browsers') && !params.has('specs') && !params.has('grep') && !params.has('cookies') && !params.has('retries')) return;
+
+      if (params.has('browsers')) {
+        var wanted = params.get('browsers').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        form.querySelectorAll('input[name="browsers"]').forEach(function (cb) {
+          cb.checked = wanted.indexOf(cb.value) !== -1;
+        });
+      }
+      if (params.has('specs')) {
+        specsInput.value = params.get('specs');
+      }
+      if (params.has('grep')) {
+        grepInput.value = params.get('grep');
+      }
+      if (params.has('cookies')) {
+        cookiesInput.value = params.get('cookies');
+      }
+      if (retriesInput && params.has('retries')) {
+        retriesInput.checked = params.get('retries') === 'true';
+      }
+      scopeAll.checked = !anyScopeChecked() && specsInput.value.trim() === '';
+    })();
+
     form.addEventListener('submit', function (event) {
       event.preventDefault();
 
