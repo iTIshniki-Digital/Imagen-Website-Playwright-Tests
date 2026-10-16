@@ -12,10 +12,10 @@
   var OWNER = "iTishnikiDigital";
   var REPO = "Imagen-Website-Playwright-Tests";
   var WORKFLOW_FILE = "playwright.yml";
-  var GITHUB_CLIENT_ID = ""; // OAuth App → Client ID (docs/README-setup.md step 1)
-  var WORKER_URL = ""; // Cloudflare Worker URL (docs/README-setup.md step 2)
-  var DRIVE_LATEST_JSON_FILE_ID = ""; // scripts/README-qa-dashboard.md step 1
-  var DRIVE_API_KEY = ""; // Google Cloud Console API key, restricted to Drive API (docs/README-setup.md step 3)
+  var GITHUB_CLIENT_ID = "Ov23liOhDUGvGWL8CUh6"; // OAuth App → Client ID (docs/README-setup.md step 1)
+  var WORKER_URL = "https://imagen-qa-oauth.ruslanb-e28.workers.dev"; // Cloudflare Worker URL (docs/README-setup.md step 2)
+  var DRIVE_LATEST_JSON_FILE_ID = "1XEeA3QsB6U0ce4J6HcLoMVYSvp8SyqzZ"; // scripts/README-qa-dashboard.md step 1
+  var DRIVE_API_KEY = "AIzaSyAbqxbglvdIqzkIJVxTysk5kFMruQuHSz0"; // Google Cloud Console API key, restricted to Drive API (docs/README-setup.md step 3)
 
   var REDIRECT_URI = location.origin + location.pathname;
   var API = "https://api.github.com";
