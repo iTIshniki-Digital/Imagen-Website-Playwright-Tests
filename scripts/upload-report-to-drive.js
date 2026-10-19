@@ -31,8 +31,15 @@ async function main() {
 
 async function deleteOldReports(drive, folderId) {
   const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  // name != 'latest.json' — тот файл не "очередной отчёт", а один и тот же
+  // файл, который scripts/publish-qa-dashboard-run.js каждый раз
+  // перезаписывает (files.update, не create). createdTime у него не
+  // меняется от перезаписи — без этого исключения он бы сам попал под
+  // удаление через 7 дней после первого создания и тихо сломал вкладку
+  // "Latest Run" в дашборде (обнаружено 2026-10-19, живьём не ловили —
+  // файл ещё не прожил неделю).
   const { data } = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false and createdTime < '${cutoff}'`,
+    q: `'${folderId}' in parents and trashed = false and createdTime < '${cutoff}' and name != 'latest.json'`,
     fields: 'files(id, name, createdTime)',
   });
 
