@@ -38,6 +38,9 @@
 //   GH_TOKEN                    — для gh CLI (создание/закрытие issues).
 //     Не задан — пропускаем issues, но Drive всё равно публикуем (если
 //     заданы GDRIVE_*). Ничего из этого не валит сам прогон тестов.
+//   SLACK_WEBHOOK_URL            — Incoming Webhook канала в Slack, см.
+//     scripts/README-qa-dashboard.md. Не задан — просто не шлём отчёт в
+//     Slack, остальное не страдает.
 // Необязательные (контекст запуска, подставляются воркфлоу):
 //   GITHUB_RUN_ID, GITHUB_RUN_NUMBER, GITHUB_ACTOR, GITHUB_EVENT_NAME,
 //   BROWSERS, SPEC_FILES, GREP, RETRIES, REPORT_DRIVE_URL, SOURCE_ISSUE
@@ -97,6 +100,7 @@ async function main() {
   }
 
   writeJobSummary(run);
+  await notifySlack(run);
 }
 
 /* ------------------------------------------------------------- Google Drive */
@@ -446,6 +450,73 @@ function writeJobSummary(run) {
     fs.appendFileSync(summaryFile, md + '\n');
   } catch (err) {
     console.warn(`Не удалось записать job summary: ${err.message}`);
+  }
+}
+
+/* ------------------------------------------------------------------ Slack */
+
+// После каждого прогона, не только при падениях — см. обсуждение с
+// пользователем 2026-10-19 ("после каждого прогона, рекомендую"). Без
+// SLACK_WEBHOOK_URL просто ничего не отправляет, не ломает остальное.
+async function notifySlack(run) {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const t = run.totals;
+  const allGood = t.failed === 0;
+  const headerEmoji = allGood ? '✅' : '❌';
+
+  const failingCats = Object.entries(run.categories)
+    .map(([, cat]) => {
+      const checks = cat.checks || [];
+      const failed = checks.filter((c) => c.status === 'failed').length;
+      return { name: cat.name, failed };
+    })
+    .filter((c) => c.failed > 0);
+
+  const catLines = failingCats.length
+    ? failingCats.map((c) => `❌ *${c.name}* — ${c.failed} fail`).join('\n') +
+      (failingCats.length < Object.keys(run.categories).length
+        ? `\n_(${Object.keys(run.categories).length - failingCats.length} more categories all passed)_`
+        : '')
+    : '✅ Every category passed.';
+
+  const runUrl =
+    process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+      ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : null;
+
+  const links = [runUrl ? `<${runUrl}|View in GitHub Actions>` : null, run.reportUrl ? `<${run.reportUrl}|Full HTML report>` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+  const body = {
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `${headerEmoji} QA Run — ${run.runId}`, emoji: true },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${t.passed} passed · ${t.failed} failed · ${t.skipped} skipped* out of ${t.total}${run.trigger && run.trigger.actor ? ` · triggered by ${run.trigger.actor}` : ''}`,
+        },
+      },
+      { type: 'section', text: { type: 'mrkdwn', text: catLines } },
+      ...(links ? [{ type: 'context', elements: [{ type: 'mrkdwn', text: links }] }] : []),
+    ],
+  };
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.warn(`Slack webhook вернул ${res.status}: ${await res.text()}`);
+  } catch (err) {
+    console.warn(`Не удалось отправить отчёт в Slack: ${err.message}`);
   }
 }
 

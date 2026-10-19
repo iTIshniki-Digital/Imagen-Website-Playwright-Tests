@@ -105,6 +105,21 @@ permissions" → Save, и тогда секрет `QA_BOT_TOKEN` можно уд
 отдают картинку браузеру с активной Google-сессией, только через API с
 ключом — надёжно).
 
+## 2. Отчёт в Slack после каждого прогона (необязательно)
+
+1. https://api.slack.com/apps → **Create New App** → "From scratch" →
+   выбрать свой workspace.
+2. В настройках приложения слева → **Incoming Webhooks** → включить →
+   **Add New Webhook to Workspace** → выбрать канал.
+3. Скопировать URL вида `https://hooks.slack.com/services/...`.
+4. GitHub → Settings → Secrets and variables → Actions → New repository
+   secret → имя `SLACK_WEBHOOK_URL`, значение — этот URL.
+
+Без этого секрета просто ничего не шлётся в Slack, остальной пайплайн не
+страдает. Сообщение уходит после каждого прогона (не только при
+падениях) — сводка по категориям, ссылка на полный отчёт и на сам
+прогон в Actions.
+
 ## Поддерживать категории в соответствии
 
 Категории — категории ручного чек-листа клиента (дашборд

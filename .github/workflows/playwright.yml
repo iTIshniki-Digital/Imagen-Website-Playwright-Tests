@@ -140,6 +140,7 @@ jobs:
         GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         GDRIVE_LATEST_JSON_FILE_ID: ${{ secrets.GDRIVE_LATEST_JSON_FILE_ID }}
         GDRIVE_API_KEY: ${{ secrets.GDRIVE_API_KEY }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         BROWSERS: ${{ inputs.browsers }}
         SPEC_FILES: ${{ inputs.spec_files }}
         GREP: ${{ inputs.grep }}
