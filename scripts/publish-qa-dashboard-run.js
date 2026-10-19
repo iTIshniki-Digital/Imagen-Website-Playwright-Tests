@@ -256,31 +256,50 @@ function ensureLabel(name, color, description) {
   }
 }
 
-// Один запрос на все открытые qa-bug issues вместо поиска по каждому
-// ключу отдельно — из тела каждого вытаскиваем его qa-check-key и строим
-// карту key -> номер issue, дальше всё сравнение локальное.
-function loadOpenBugIssues() {
+const IGNORE_LABEL = 'qa-ignored';
+
+// Один запрос на все qa-bug issues (любое состояние) вместо поиска по
+// каждому ключу отдельно — из тела каждого вытаскиваем его qa-check-key и
+// раскладываем по трём корзинам, дальше всё сравнение локальное:
+//   open         — сейчас открыт, при новом падении просто комментируем;
+//   ignored      — закрыт и помечен qa-ignored (кто-то решил, что это не
+//                  баг) — такие вообще не трогаем, не пересоздаём;
+//   closedOther  — закрыт как починенный, но без qa-ignored — если
+//                  проверка падает снова, это регресс, переоткрываем ТОТ
+//                  ЖЕ issue, а не плодим дубликат.
+function loadBugIssues() {
   let out;
   try {
-    out = gh(['issue', 'list', '--label', BUG_LABEL, '--state', 'open', '--json', 'number,body', '--limit', '200']);
+    out = gh(['issue', 'list', '--label', BUG_LABEL, '--state', 'all', '--json', 'number,body,state,labels', '--limit', '500']);
   } catch (err) {
-    console.warn(`Не удалось получить список открытых qa-bug issues: ${err.message}`);
-    return new Map();
+    console.warn(`Не удалось получить список qa-bug issues: ${err.message}`);
+    return { open: new Map(), ignored: new Set(), closedOther: new Map() };
   }
   const list = JSON.parse(out || '[]');
-  const map = new Map();
+  const open = new Map();
+  const ignored = new Set();
+  const closedOther = new Map();
   for (const issue of list) {
     // checkKey сам может содержать пробелы (titlePath через " > "), поэтому
     // граница — закрывающий --> HTML-комментария, не \s.
     const m = (issue.body || '').match(/<!--\s*qa-check-key:\s*(.+?)\s*-->/);
-    if (m) map.set(m[1], issue.number);
+    if (!m) continue;
+    const key = m[1];
+    if (issue.state === 'open') {
+      open.set(key, issue.number);
+    } else if ((issue.labels || []).some((l) => l.name === IGNORE_LABEL)) {
+      ignored.add(key);
+    } else {
+      closedOther.set(key, issue.number);
+    }
   }
-  return map;
+  return { open, ignored, closedOther };
 }
 
 function syncGithubIssues(run) {
   ensureLabel(BUG_LABEL, 'd73a4a', 'Auto-filed by the QA pipeline from a failing check');
   ensureLabel('qa-run', '0e8a16', 'Opened by the QA dashboard to request a test run');
+  ensureLabel(IGNORE_LABEL, '6a737d', 'Not a real bug — the pipeline stops recreating/reopening it. Remove this label to start tracking it again.');
 
   const passedKeys = new Set();
   Object.values(run.categories).forEach((cat) => {
@@ -289,13 +308,20 @@ function syncGithubIssues(run) {
     });
   });
 
-  const openBugIssues = loadOpenBugIssues(); // checkKey -> issue number, один запрос на всё
+  const { open: openBugIssues, ignored: ignoredKeys, closedOther: closedOtherIssues } = loadBugIssues();
 
   // Завести/обновить issue на каждую упавшую проверку — screenshotUrl/
   // videoUrl тут уже настоящие Drive-ссылки, загруженные выше в этом же
   // прогоне, не повторная загрузка.
+  let ignoredCount = 0;
   for (const check of run.totals.failingChecks) {
+    if (ignoredKeys.has(check.key)) {
+      ignoredCount++;
+      continue; // помечено qa-ignored — не пересоздаём и не комментируем
+    }
+
     const existing = openBugIssues.get(check.key);
+    const regressed = !existing && closedOtherIssues.get(check.key);
     const body = [
       `<!-- qa-check-key: ${check.key} -->`,
       `**Category:** ${check.category}`,
@@ -317,6 +343,13 @@ function syncGithubIssues(run) {
       } catch (err) {
         console.warn(`Не удалось прокомментировать issue #${existing}: ${err.message}`);
       }
+    } else if (regressed) {
+      try {
+        gh(['issue', 'reopen', String(regressed)]);
+        gh(['issue', 'comment', String(regressed), '--body', `Regressed — failing again as of run ${run.runId}.\n\n${body}`]);
+      } catch (err) {
+        console.warn(`Не удалось переоткрыть issue #${regressed}: ${err.message}`);
+      }
     } else {
       try {
         gh(['issue', 'create', '--title', `QA: ${check.title}`, '--label', BUG_LABEL, '--body', body]);
@@ -325,7 +358,6 @@ function syncGithubIssues(run) {
       }
     }
   }
-
   // Закрыть issues по проверкам, которые снова прошли.
   for (const key of passedKeys) {
     const existing = openBugIssues.get(key);
@@ -357,7 +389,11 @@ function syncGithubIssues(run) {
     }
   }
 
-  console.log(`Issues: ${run.totals.failingChecks.length} заведено/обновлено, ${passedKeys.size} проверок прошли.`);
+  console.log(
+    `Issues: ${run.totals.failingChecks.length - ignoredCount} заведено/обновлено` +
+      (ignoredCount ? ` (+ ${ignoredCount} пропущено, ${IGNORE_LABEL})` : '') +
+      `, ${passedKeys.size} проверок прошли.`
+  );
 }
 
 /* ------------------------------------------------------------- Job Summary */

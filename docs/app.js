@@ -461,9 +461,27 @@
     });
   }
 
+  function isIgnored(b){
+    return (b.labels||[]).some(function(l){ return (typeof l === "string" ? l : l.name) === "qa-ignored"; });
+  }
+
   function toggleBugState(number, nextState, btn){
     btn.disabled = true;
     gh("/repos/"+OWNER+"/"+REPO+"/issues/"+number, { method: "PATCH", body: JSON.stringify({ state: nextState }) })
+      .then(function(){ return loadBugsAsync(); })
+      .then(function(){ renderBugs(); })
+      .catch(function(err){ btn.disabled = false; alert_("Couldn't update the issue: " + err.message); });
+  }
+  // Проверка не считается багом — закрываем И помечаем qa-ignored. Пайплайн
+  // (scripts/publish-qa-dashboard-run.js) видит этот лейбл и перестаёт и
+  // пересоздавать, и переоткрывать issue для этой же проверки — до тех
+  // пор, пока кто-то не нажмёт "Un-ignore" (убирает лейбл, оставляет
+  // закрытым — если проверка правда ещё падает, следующий прогон сам
+  // переоткроет issue как регресс).
+  function setIgnored(number, nextIgnored, btn){
+    btn.disabled = true;
+    var labels = nextIgnored ? ["qa-bug", "qa-ignored"] : ["qa-bug"];
+    gh("/repos/"+OWNER+"/"+REPO+"/issues/"+number, { method: "PATCH", body: JSON.stringify({ state: "closed", labels: labels }) })
       .then(function(){ return loadBugsAsync(); })
       .then(function(){ renderBugs(); })
       .catch(function(err){ btn.disabled = false; alert_("Couldn't update the issue: " + err.message); });
@@ -477,16 +495,25 @@
     selectTab("run");
   }
   window.__qaToggleBug = function(number, next, el){ toggleBugState(number, next, el); };
+  window.__qaSetIgnored = function(number, next, el){ setIgnored(number, next, el); };
 
   function renderBugs(){
     var list = document.getElementById("bugsList");
     var empty = document.getElementById("bugsEmpty");
     var emptyTitle = document.getElementById("bugsEmptyTitle");
-    var filtered = state.bugs.filter(function(b){ return state.bugFilter === "all" ? true : b.state === state.bugFilter; });
+    var filtered = state.bugs.filter(function(b){
+      if (state.bugFilter === "all") return true;
+      if (state.bugFilter === "ignored") return isIgnored(b);
+      if (state.bugFilter === "closed") return b.state === "closed" && !isIgnored(b);
+      return b.state === state.bugFilter; // "open"
+    });
     if (!filtered.length){
       list.innerHTML = "";
       empty.hidden = false;
-      emptyTitle.textContent = state.bugFilter === "closed" ? "No fixed bugs yet" : (state.bugFilter === "all" ? "No bugs logged yet" : "No open bugs");
+      emptyTitle.textContent =
+        state.bugFilter === "closed" ? "No fixed bugs yet" :
+        state.bugFilter === "ignored" ? "Nothing ignored" :
+        state.bugFilter === "all" ? "No bugs logged yet" : "No open bugs";
       return;
     }
     empty.hidden = true;
@@ -496,7 +523,15 @@
       var shotMatch = body.match(/!\[screenshot\]\(([^)]+)\)/);
       var videoMatch = body.match(/\[▶ Watch recording[^\]]*\]\(([^)]+)\)/);
       var isOpen = b.state === "open";
+      var ignored = isIgnored(b);
       var shot = shotMatch ? ('<div class="shot"><img src="'+esc(shotMatch[1])+'" alt="Screenshot for: '+esc(b.title)+'" loading="lazy" onclick="window.__qaOpenShot(\''+esc(shotMatch[1]).replace(/'/g,"&#39;")+'\')" onerror="this.closest(\'.shot\').remove()"></div>') : "";
+      var statusWord = isOpen ? "open" : (ignored ? "ignored" : "fixed");
+      var actions = isOpen
+        ? '<button class="btn small" onclick="window.__qaToggleBug('+b.number+',\'closed\',this)">Mark fixed</button>' +
+          '<button class="btn small" onclick="window.__qaSetIgnored('+b.number+',true,this)">Ignore</button>'
+        : ignored
+          ? '<button class="btn small" onclick="window.__qaSetIgnored('+b.number+',false,this)">Un-ignore</button>'
+          : '<button class="btn small" onclick="window.__qaToggleBug('+b.number+',\'open\',this)">Reopen</button>';
       return '<div class="bug">' + shot +
         '<div class="bug-main">' +
           '<div class="bug-top">' +
@@ -504,11 +539,9 @@
             '<span class="bug-title"><a href="'+esc(b.html_url)+'" target="_blank" rel="noopener">'+esc(b.title)+'</a></span>' +
           '</div>' +
           (videoMatch ? '<a class="clip-link" href="'+esc(videoMatch[1])+'" target="_blank" rel="noopener">▶ Watch recording</a>' : '') +
-          '<div class="bug-meta mono">'+ (isOpen ? "open" : "fixed") + ' · #'+b.number+' · '+fmtDate(b.created_at) + '</div>' +
+          '<div class="bug-meta mono">'+ statusWord + ' · #'+b.number+' · '+fmtDate(b.created_at) + '</div>' +
         '</div>' +
-        '<div class="bug-actions">' +
-          '<button class="btn small" onclick="window.__qaToggleBug('+b.number+',\''+(isOpen?"closed":"open")+'\',this)">'+(isOpen?"Mark fixed":"Reopen")+'</button>' +
-        '</div>' +
+        '<div class="bug-actions">' + actions + '</div>' +
       '</div>';
     }).join("");
   }

@@ -327,12 +327,13 @@ footer.note{max-width:1180px; margin:0 auto 40px; padding:0 20px; font-size:11.5
           <div class="bug-tabs" role="tablist">
             <button class="bug-tab" data-bugfilter="open" aria-selected="true">Open</button>
             <button class="bug-tab" data-bugfilter="closed" aria-selected="false">Fixed</button>
+            <button class="bug-tab" data-bugfilter="ignored" aria-selected="false">Ignored</button>
             <button class="bug-tab" data-bugfilter="all" aria-selected="false">All</button>
           </div>
           <a class="btn small" id="logBugLink" href="#" target="_blank" rel="noopener">Log a bug on GitHub →</a>
         </div>
       </div>
-      <p class="hint">Failing checks are filed here automatically by the pipeline, with a screenshot and a recording link. Closed = fixed.</p>
+      <p class="hint">Failing checks are filed here automatically by the pipeline, with a screenshot (and a recording link for multi-step flows). Not a real bug? Hit "Ignore" — it stays closed and the pipeline stops recreating it until you "Un-ignore".</p>
       <div id="bugsEmpty" class="empty" hidden>
         <span class="mark">✓</span>
         <h3 id="bugsEmptyTitle">No open bugs</h3>

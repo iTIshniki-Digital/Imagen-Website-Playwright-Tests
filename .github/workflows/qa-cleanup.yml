@@ -1,0 +1,35 @@
+name: QA Cleanup (danger — deletes test data)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE to confirm — permanently removes qa-bug/qa-run issues, playwright.yml + qa-issue-trigger.yml run history, and Drive files in the reports folder (latest.json kept)'
+        required: true
+permissions:
+  contents: read
+  issues: write
+  actions: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "DELETE" ]; then
+            echo "Confirmation text must be exactly DELETE — got '${{ inputs.confirm }}'. Aborting, nothing was touched." >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install dependencies
+        run: npm ci
+      - name: Run cleanup
+        run: node scripts/cleanup-qa-data.js
+        env:
+          GH_TOKEN: ${{ secrets.QA_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
