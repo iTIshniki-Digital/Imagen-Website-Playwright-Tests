@@ -118,13 +118,18 @@ jobs:
         GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
         GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
-    - name: Publish run to QA Dashboard
-      # Разбирает playwright-report/results.json по категориям клиентского
-      # чек-листа, грузит скриншоты упавших проверок и сводку прогона на
-      # Google Drive (один и тот же файл, см. scripts/publish-qa-dashboard-run.js) —
-      # дашборд (claude.ai Artifact) забирает её сам при открытии.
-      # continue-on-error: пока обкатываем — сбой здесь не должен красить
-      # весь прогон тестов, отчёт на Drive к этому шагу уже загружен.
+    - name: Publish run (Drive + GitHub Issues)
+      # Один проход (scripts/publish-qa-dashboard-run.js): разбирает
+      # playwright-report/results.json по категориям клиентского чек-листа,
+      # грузит скриншоты/видео упавших проверок на Google Drive один раз —
+      # и использует те же ссылки и в latest.json (его читает веб-приложение,
+      # docs/), и в issues с лейблом qa-bug. Раньше это были два отдельных
+      # шага/скрипта с раздельным парсингом — issues никогда не получали
+      # скриншот, потому что скрипт, который их заводил, сам на Drive ничего
+      # не грузил (найдено 2026-10-19 на живом прогоне). Теперь один объект
+      # run проходит через обе публикации внутри одного процесса.
+      # continue-on-error: сбой здесь не должен красить весь прогон тестов,
+      # отчёт на Drive к этому шагу уже загружен предыдущим шагом.
       if: ${{ !cancelled() }}
       continue-on-error: true
       run: node scripts/publish-qa-dashboard-run.js
@@ -138,18 +143,6 @@ jobs:
         SPEC_FILES: ${{ inputs.spec_files }}
         GREP: ${{ inputs.grep }}
         RETRIES: ${{ inputs.retries }}
-    - name: Sync QA bugs to GitHub Issues
-      # Заводит/комментирует issue (label qa-bug) на каждую упавшую
-      # проверку со скриншотом и видео, закрывает issues по проверкам,
-      # которые снова прошли, и если прогон запущен из issue
-      # (source_issue — см. .github/workflows/qa-issue-trigger.yml и
-      # дашборд), отчитывается туда и закрывает его.
-      # continue-on-error: та же логика, что у шага публикации в дашборд
-      # выше — не красим весь прогон тестов из-за этого шага.
-      if: ${{ !cancelled() }}
-      continue-on-error: true
-      run: node scripts/sync-qa-github-issues.js
-      env:
         # QA_BOT_TOKEN — см. тот же комментарий в qa-issue-trigger.yml:
         # "Workflow permissions" у этого репозитория read-only и пока
         # некому его переключить, PAT этим не ограничен. Фолбэк на

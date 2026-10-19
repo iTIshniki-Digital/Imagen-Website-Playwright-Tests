@@ -1,94 +1,114 @@
 // Читает JSON-отчёт Playwright (см. playwright.config.ts, репортер 'json'),
 // группирует результаты по категориям клиентского чек-листа
 // (qa-dashboard-categories.js), грузит скриншоты и видео упавших тестов на
-// Google Drive и перезаписывает один и тот же файл latest.json на Drive —
-// его забирает наш дашборд (claude.ai Artifact) при открытии.
+// Google Drive — и использует их же (РОВНО ОДИН раз, не дважды) в двух
+// местах:
+//   1. перезаписывает ОДИН и тот же файл latest.json на Drive — его читает
+//      веб-приложение (docs/) через Worker, см. docs/README-setup.md;
+//   2. заводит/обновляет/закрывает issues с лейблом qa-bug на GitHub —
+//      основной способ видеть баги, см. scripts/README-qa-dashboard.md.
+//
+// Раньше это были два отдельных скрипта (publish-qa-dashboard-run.js и
+// sync-qa-github-issues.js), каждый сам по себе парсил отчёт — из-за этого
+// у issues никогда не было скриншотов: их грузил на Drive только первый
+// скрипт, а issues заводил второй, который про эту загрузку просто не знал
+// (обнаружено 2026-10-19 на живом прогоне — issues создавались пустыми).
+// Теперь один проход, один набор загруженных файлов, один источник правды.
 //
 // Почему "перезаписывает один и тот же файл", а не создаёт новый каждый
-// раз: у Artifact-страницы нет способа найти "последний" файл в папке Drive
-// без авторизованного API-ключа с правом listing — проще держать fileId
-// фиксированным (создаётся один раз вручную, см. README ниже) и обновлять
-// его содержимое через files.update.
-//
-// Почему именно сюда, а не напрямую в db артефакта: GitHub Actions не может
-// вызвать db-API артефакта — туда может писать либо сам Claude (через
-// Artifact-инструмент), либо браузер человека, открывшего страницу. Поэтому
-// CI публикует результат в заведомо читаемое место (Drive), а дашборд сам
-// забирает его при открытии ("sync", см. кнопку в самом дашборде).
+// раз: у веб-приложения нет способа найти "последний" файл в папке Drive
+// без отдельного listing-запроса — проще держать fileId фиксированным
+// (создаётся один раз заранее, см. README ниже) и обновлять его содержимое
+// через files.update. Если этот файл недоступен для перезаписи (создан не
+// тем же Google-аккаунтом, например, залит руками при первоначальной
+// настройке) — скрипт сам создаёт новый от своего имени и громко просит
+// обновить id в двух местах (секрет GitHub + переменная Worker'а).
 //
 // Требует переменные окружения:
 //   GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, GDRIVE_REFRESH_TOKEN  — те же,
 //     что upload-report-to-drive.js
 //   GDRIVE_FOLDER_ID            — та же папка, что и у отчётов
-//   GDRIVE_LATEST_JSON_FILE_ID  — id ОДНОГО файла на Drive, созданного один
-//     раз заранее (см. scripts/README-qa-dashboard.md), который этот скрипт
-//     каждый раз перезаписывает. Если не задан — скрипт выходит с кодом 0 и
-//     просто предупреждает: не ломаем прогон тестов из-за ещё не
-//     настроенного дашборда.
+//   GDRIVE_LATEST_JSON_FILE_ID  — id ОДНОГО файла на Drive (см.
+//     scripts/README-qa-dashboard.md). Не задан — пропускаем публикацию
+//     в веб-приложение, но issues всё равно заводим (если есть GH_TOKEN).
+//   GH_TOKEN                    — для gh CLI (создание/закрытие issues).
+//     Не задан — пропускаем issues, но Drive всё равно публикуем (если
+//     заданы GDRIVE_*). Ничего из этого не валит сам прогон тестов.
 // Необязательные (контекст запуска, подставляются воркфлоу):
 //   GITHUB_RUN_ID, GITHUB_RUN_NUMBER, GITHUB_ACTOR, GITHUB_EVENT_NAME,
-//   BROWSERS, SPEC_FILES, GREP, RETRIES, REPORT_DRIVE_URL
+//   BROWSERS, SPEC_FILES, GREP, RETRIES, REPORT_DRIVE_URL, SOURCE_ISSUE
 
 const fs = require('fs');
+const { execFileSync } = require('child_process');
 const { google } = require('googleapis');
-const { categoryForFile, categoryName, UNCATEGORIZED_SLUG } = require('./qa-dashboard-categories');
+const { categoryForFile, categoryName } = require('./qa-dashboard-categories');
 
 const RESULTS_JSON = 'playwright-report/results.json';
+const BUG_LABEL = 'qa-bug';
 
 async function main() {
-  const latestFileId = process.env.GDRIVE_LATEST_JSON_FILE_ID;
-  if (!latestFileId) {
-    console.warn(
-      'GDRIVE_LATEST_JSON_FILE_ID не задан — пропускаю публикацию в QA-дашборд (сам прогон тестов это не затрагивает). ' +
-        'См. scripts/README-qa-dashboard.md для разовой настройки.'
-    );
-    return;
-  }
-
   if (!fs.existsSync(RESULTS_JSON)) {
-    console.warn(`${RESULTS_JSON} не найден — пропускаю публикацию в QA-дашборд.`);
+    console.warn(`${RESULTS_JSON} не найден — нечего публиковать.`);
     return;
   }
-
-  const clientId = process.env.GDRIVE_CLIENT_ID;
-  const clientSecret = process.env.GDRIVE_CLIENT_SECRET;
-  const refreshToken = process.env.GDRIVE_REFRESH_TOKEN;
-  const folderId = process.env.GDRIVE_FOLDER_ID;
-  if (!clientId || !clientSecret || !refreshToken || !folderId) {
-    console.error('GDRIVE_CLIENT_ID / GDRIVE_CLIENT_SECRET / GDRIVE_REFRESH_TOKEN / GDRIVE_FOLDER_ID не заданы.');
-    process.exit(1);
-  }
-
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-  oauth2Client.setCredentials({ refresh_token: refreshToken });
-  const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
   const report = JSON.parse(fs.readFileSync(RESULTS_JSON, 'utf8'));
   const run = buildRunSummary(report);
-
   console.log(
     `Разобрано: ${run.totals.passed} passed, ${run.totals.failed} failed, ${run.totals.skipped} skipped ` +
       `(${run.totals.total} всего, ${run.totals.failingChecks.length} упавших проверок)`
   );
 
-  // Скриншоты и видео упавших проверок — каждый отдельным файлом, "anyone
-  // with link" (иначе дашборд, открытый не из того же Google-аккаунта, не
-  // сможет их показать). Это меняет режим доступа именно для этих файлов —
-  // zip с полным отчётом остаётся закрытым, как раньше.
-  //
-  // Видео — ссылкой на штатный просмотрщик Drive (.../file/d/<id>/view), а
-  // не прямым <video src>: прямые ссылки на Drive не всегда отдают
-  // byte-range (нужен для перемотки), просмотрщик это уже решает сам и
-  // гарантированно проигрывает файл в любом браузере.
+  const drive = makeDriveClient();
+  if (drive) {
+    await uploadFailureMedia(run, drive);
+    await publishLatestJson(run, drive);
+  } else {
+    console.warn('GDRIVE_* не заданы — пропускаю загрузку на Drive (скриншоты/видео/latest.json).');
+  }
+
+  if (hasGh()) {
+    syncGithubIssues(run);
+  } else {
+    console.warn('gh CLI/GH_TOKEN недоступны — пропускаю issues.');
+  }
+
+  writeJobSummary(run);
+}
+
+/* ------------------------------------------------------------- Google Drive */
+
+function makeDriveClient() {
+  const clientId = process.env.GDRIVE_CLIENT_ID;
+  const clientSecret = process.env.GDRIVE_CLIENT_SECRET;
+  const refreshToken = process.env.GDRIVE_REFRESH_TOKEN;
+  const folderId = process.env.GDRIVE_FOLDER_ID;
+  if (!clientId || !clientSecret || !refreshToken || !folderId) return null;
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+  return { client: google.drive({ version: 'v3', auth: oauth2Client }), folderId };
+}
+
+// Скриншоты и видео упавших проверок — каждый отдельным файлом, "anyone
+// with link" (иначе ни веб-приложение, ни issue на GitHub не покажут
+// картинку/видео тому, кто не вошёл под тем же Google-аккаунтом). Это
+// меняет режим доступа именно для этих файлов — zip с полным отчётом
+// остаётся закрытым, как раньше.
+//
+// Видео — ссылкой на штатный просмотрщик Drive (.../file/d/<id>/view), а
+// не прямым <video src>: прямые ссылки на Drive не всегда отдают
+// byte-range (нужен для перемотки), просмотрщик это уже решает сам.
+async function uploadFailureMedia(run, drive) {
   for (const check of run.totals.failingChecks) {
     if (check.screenshotPath && fs.existsSync(check.screenshotPath)) {
       try {
-        const { data } = await drive.files.create({
-          requestBody: { name: `${run.runId}__${check.key}.png`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [folderId] },
+        const { data } = await drive.client.files.create({
+          requestBody: { name: `${run.runId}__${check.key}.png`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [drive.folderId] },
           media: { mimeType: 'image/png', body: fs.createReadStream(check.screenshotPath) },
           fields: 'id',
         });
-        await drive.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
+        await drive.client.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
         check.screenshotUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
       } catch (err) {
         console.warn(`Не удалось загрузить скриншот для ${check.key}: ${err.message}`);
@@ -98,12 +118,12 @@ async function main() {
 
     if (check.videoPath && fs.existsSync(check.videoPath)) {
       try {
-        const { data } = await drive.files.create({
-          requestBody: { name: `${run.runId}__${check.key}.webm`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [folderId] },
+        const { data } = await drive.client.files.create({
+          requestBody: { name: `${run.runId}__${check.key}.webm`.replace(/[^A-Za-z0-9_.-]/g, '_'), parents: [drive.folderId] },
           media: { mimeType: 'video/webm', body: fs.createReadStream(check.videoPath) },
           fields: 'id',
         });
-        await drive.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
+        await drive.client.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
         check.videoUrl = `https://drive.google.com/file/d/${data.id}/view`;
       } catch (err) {
         console.warn(`Не удалось загрузить видео для ${check.key}: ${err.message}`);
@@ -113,12 +133,24 @@ async function main() {
   }
   // screenshotPath/videoPath временные и есть только у объектов из
   // failingChecks; сами check-объекты внутри run.categories — те же ссылки,
-  // так что screenshotUrl/videoUrl, записанные выше, уже попали туда.
+  // так что screenshotUrl/videoUrl, записанные выше, уже попали туда — и
+  // попадут и в latest.json, и в тела issues ниже, без повторной загрузки.
+}
+
+async function publishLatestJson(run, drive) {
+  const latestFileId = process.env.GDRIVE_LATEST_JSON_FILE_ID;
+  if (!latestFileId) {
+    console.warn(
+      'GDRIVE_LATEST_JSON_FILE_ID не задан — пропускаю публикацию в веб-приложение. ' +
+        'См. scripts/README-qa-dashboard.md для разовой настройки.'
+    );
+    return;
+  }
 
   const jsonBody = JSON.stringify(run, null, 0);
   let activeFileId = latestFileId;
   try {
-    await drive.files.update({
+    await drive.client.files.update({
       fileId: activeFileId,
       media: { mimeType: 'application/json', body: bufferStream(jsonBody) },
     });
@@ -135,30 +167,203 @@ async function main() {
       `Не удалось перезаписать файл ${activeFileId} (${err.message}). ` +
         `Похоже, он создан другим Google-аккаунтом — создаю новый latest.json от имени текущего аккаунта.`
     );
-    const { data } = await drive.files.create({
-      requestBody: { name: 'latest.json', parents: [folderId] },
+    const { data } = await drive.client.files.create({
+      requestBody: { name: 'latest.json', parents: [drive.folderId] },
       media: { mimeType: 'application/json', body: bufferStream(jsonBody) },
       fields: 'id',
     });
     activeFileId = data.id;
     console.warn(
       `НОВЫЙ id файла: ${activeFileId} — обновите секрет GDRIVE_LATEST_JSON_FILE_ID в GitHub ` +
-        `и переменную DRIVE_LATEST_JSON_FILE_ID в Cloudflare Worker на это значение, иначе дашборд продолжит смотреть на старый (пустой) файл.`
+        `и переменную DRIVE_LATEST_JSON_FILE_ID в Cloudflare Worker на это значение, иначе веб-приложение продолжит смотреть на старый (пустой) файл.`
     );
   }
 
   // На случай, если файл раньше создавался без публичного доступа.
-  await drive.permissions
+  await drive.client.permissions
     .create({ fileId: activeFileId, requestBody: { role: 'reader', type: 'anyone' } })
     .catch(() => {}); // уже может быть выдано — не фатально
 
-  console.log(`QA-дашборд обновлён: https://www.googleapis.com/drive/v3/files/${activeFileId}?alt=media`);
+  console.log(`Веб-приложение обновлено: https://www.googleapis.com/drive/v3/files/${activeFileId}?alt=media`);
 }
 
 function bufferStream(text) {
   const { Readable } = require('stream');
   return Readable.from([Buffer.from(text, 'utf8')]);
 }
+
+/* -------------------------------------------------------------- GitHub Issues */
+
+function hasGh() {
+  try {
+    execFileSync('gh', ['--version'], { stdio: 'ignore' });
+    return !!process.env.GH_TOKEN;
+  } catch {
+    return false;
+  }
+}
+
+function gh(args) {
+  return execFileSync('gh', args, { encoding: 'utf8' });
+}
+
+function ensureLabel(name, color, description) {
+  try {
+    gh(['label', 'create', name, '--color', color, '--description', description, '--force']);
+  } catch (err) {
+    console.warn(`Не удалось создать/обновить label "${name}": ${err.message}`);
+  }
+}
+
+// Один запрос на все открытые qa-bug issues вместо поиска по каждому
+// ключу отдельно — из тела каждого вытаскиваем его qa-check-key и строим
+// карту key -> номер issue, дальше всё сравнение локальное.
+function loadOpenBugIssues() {
+  let out;
+  try {
+    out = gh(['issue', 'list', '--label', BUG_LABEL, '--state', 'open', '--json', 'number,body', '--limit', '200']);
+  } catch (err) {
+    console.warn(`Не удалось получить список открытых qa-bug issues: ${err.message}`);
+    return new Map();
+  }
+  const list = JSON.parse(out || '[]');
+  const map = new Map();
+  for (const issue of list) {
+    // checkKey сам может содержать пробелы (titlePath через " > "), поэтому
+    // граница — закрывающий --> HTML-комментария, не \s.
+    const m = (issue.body || '').match(/<!--\s*qa-check-key:\s*(.+?)\s*-->/);
+    if (m) map.set(m[1], issue.number);
+  }
+  return map;
+}
+
+function syncGithubIssues(run) {
+  ensureLabel(BUG_LABEL, 'd73a4a', 'Auto-filed by the QA pipeline from a failing check');
+  ensureLabel('qa-run', '0e8a16', 'Opened by the QA dashboard to request a test run');
+
+  const passedKeys = new Set();
+  Object.values(run.categories).forEach((cat) => {
+    (cat.checks || []).forEach((c) => {
+      if (c.status === 'passed') passedKeys.add(c.key);
+    });
+  });
+
+  const openBugIssues = loadOpenBugIssues(); // checkKey -> issue number, один запрос на всё
+
+  // Завести/обновить issue на каждую упавшую проверку — screenshotUrl/
+  // videoUrl тут уже настоящие Drive-ссылки, загруженные выше в этом же
+  // прогоне, не повторная загрузка.
+  for (const check of run.totals.failingChecks) {
+    const existing = openBugIssues.get(check.key);
+    const body = [
+      `<!-- qa-check-key: ${check.key} -->`,
+      `**Category:** ${check.category}`,
+      `**Run:** ${run.runId}${run.reportUrl ? ` ([full report](${run.reportUrl}))` : ''}`,
+      '',
+      Object.entries(check.projects || {})
+        .filter(([, p]) => p.error)
+        .map(([proj, p]) => `**${proj}:** ${p.error}`)
+        .join('\n\n'),
+      check.screenshotUrl ? `\n![screenshot](${check.screenshotUrl})` : '',
+      check.videoUrl ? `\n[▶ Watch recording of the failing run](${check.videoUrl})` : '',
+    ]
+      .filter((s) => s !== undefined)
+      .join('\n');
+
+    if (existing) {
+      try {
+        gh(['issue', 'comment', String(existing), '--body', `Still failing as of run ${run.runId}.\n\n${body}`]);
+      } catch (err) {
+        console.warn(`Не удалось прокомментировать issue #${existing}: ${err.message}`);
+      }
+    } else {
+      try {
+        gh(['issue', 'create', '--title', `QA: ${check.title}`, '--label', BUG_LABEL, '--body', body]);
+      } catch (err) {
+        console.warn(`Не удалось завести issue для ${check.key}: ${err.message}`);
+      }
+    }
+  }
+
+  // Закрыть issues по проверкам, которые снова прошли.
+  for (const key of passedKeys) {
+    const existing = openBugIssues.get(key);
+    if (existing) {
+      try {
+        gh(['issue', 'close', String(existing), '--comment', `Fixed — passed again in run ${run.runId}.`]);
+      } catch (err) {
+        console.warn(`Не удалось закрыть issue #${existing}: ${err.message}`);
+      }
+    }
+  }
+
+  // Если прогон запущен через issue — отчитаться туда и закрыть его.
+  const sourceIssue = process.env.SOURCE_ISSUE;
+  if (sourceIssue) {
+    const t = run.totals;
+    const msg = [
+      `Run finished: ${t.passed} passed, ${t.failed} failed, ${t.skipped} skipped.`,
+      run.reportUrl ? `[Full report](${run.reportUrl})` : null,
+      t.failed ? `${t.failed} issue(s) filed/updated with the \`${BUG_LABEL}\` label.` : 'No failures — all good.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    try {
+      gh(['issue', 'comment', sourceIssue, '--body', msg]);
+      gh(['issue', 'close', sourceIssue]);
+    } catch (err) {
+      console.warn(`Не удалось закрыть исходный issue #${sourceIssue}: ${err.message}`);
+    }
+  }
+
+  console.log(`Issues: ${run.totals.failingChecks.length} заведено/обновлено, ${passedKeys.size} проверок прошли.`);
+}
+
+/* ------------------------------------------------------------- Job Summary */
+
+// Markdown в $GITHUB_STEP_SUMMARY — GitHub сам рендерит его прямо на
+// странице прогона (вкладка Actions), без захода куда-либо ещё.
+function writeJobSummary(run) {
+  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryFile) return; // не в Actions (локальный запуск) — не пишем
+
+  const t = run.totals;
+  const rows = Object.entries(run.categories)
+    .map(([slug, cat]) => {
+      const checks = cat.checks || [];
+      const passed = checks.filter((c) => c.status === 'passed').length;
+      const failed = checks.filter((c) => c.status === 'failed').length;
+      const skipped = checks.filter((c) => c.status === 'skipped').length;
+      const status = failed ? '❌' : skipped && !passed ? '⚪' : '✅';
+      return `| ${status} ${cat.name} | ${passed} | ${failed} | ${skipped} |`;
+    })
+    .join('\n');
+
+  const tail = [
+    run.reportUrl ? `[Full HTML report (Google Drive)](${run.reportUrl})` : null,
+    t.failed ? `${t.failed} failing check(s) filed/updated as \`${BUG_LABEL}\` issues — see the Issues tab.` : null,
+  ].filter(Boolean);
+
+  const md = [
+    `## QA Run — \`${run.runId}\``,
+    '',
+    `**${t.passed} passed · ${t.failed} failed · ${t.skipped} skipped** out of ${t.total}`,
+    '',
+    '| Category | Passed | Failed | Skipped |',
+    '|---|---|---|---|',
+    rows,
+    '',
+    tail.join('\n\n'),
+  ].join('\n');
+
+  try {
+    fs.appendFileSync(summaryFile, md + '\n');
+  } catch (err) {
+    console.warn(`Не удалось записать job summary: ${err.message}`);
+  }
+}
+
+/* ------------------------------------------------------------- Report parsing */
 
 function buildRunSummary(report) {
   const checksByKey = new Map(); // key -> { key, title, file, category, projects: {}, screenshotPath, screenshotUrl, videoPath, videoUrl }
@@ -275,9 +480,9 @@ module.exports = { buildRunSummary, iterateSpecs };
 if (require.main === module) {
   main().catch((err) => {
     console.error(err);
-    // Публикация в дашборд — дополнительная функция, не должна ронять
-    // основной прогон тестов (отчёт на Drive к этому моменту уже загружен
-    // предыдущим шагом). Код выхода 0: сообщаем об ошибке, но не валим job.
+    // Публикация — дополнительная функция, не должна ронять основной прогон
+    // тестов (отчёт на Drive к этому моменту уже загружен предыдущим шагом).
+    // Код выхода 0: сообщаем об ошибке, но не валим job.
     process.exitCode = 0;
   });
 }
