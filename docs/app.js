@@ -3,19 +3,19 @@
 
   /* =======================================================================
      CONFIG — fill these in once during setup (docs/README-setup.md), then
-     commit. None of these are secret: the OAuth client id, the Worker URL
-     and a Drive API key restricted to read-only Drive access are all meant
-     to be visible in page source — the actual access control happens on
-     GitHub's and Google's side (the viewer's own OAuth token / the
-     referrer-restricted key), never here.
+     commit. GITHUB_CLIENT_ID and WORKER_URL are not secret — meant to be
+     visible in page source, real access control happens on GitHub's side
+     (the viewer's own OAuth token) and inside the Worker. The Drive file
+     id and API key used to live here too; they moved server-side into the
+     Worker (cloudflare-worker/oauth-proxy.js) so this page never holds
+     anything that would let someone read results without a real GitHub
+     token that actually has access to the repo.
      ===================================================================== */
   var OWNER = "iTIshniki-Digital"; // организация сменилась 2026-10-19 (был личный аккаунт iTishnikiDigital)
   var REPO = "Imagen-Website-Playwright-Tests";
   var WORKFLOW_FILE = "playwright.yml";
   var GITHUB_CLIENT_ID = "Ov23liOhDUGvGWL8CUh6"; // OAuth App → Client ID (docs/README-setup.md step 1)
   var WORKER_URL = "https://imagen-qa-oauth.ruslanb-e28.workers.dev"; // Cloudflare Worker URL (docs/README-setup.md step 2)
-  var DRIVE_LATEST_JSON_FILE_ID = "1XEeA3QsB6U0ce4J6HcLoMVYSvp8SyqzZ"; // scripts/README-qa-dashboard.md step 1
-  var DRIVE_API_KEY = "AIzaSyAbqxbglvdIqzkIJVxTysk5kFMruQuHSz0"; // Google Cloud Console API key, restricted to Drive API (docs/README-setup.md step 3)
 
   var REDIRECT_URI = location.origin + location.pathname;
   var API = "https://api.github.com";
@@ -334,22 +334,25 @@
 
   function loadLatestRun(){
     var empty = document.getElementById("latestEmpty");
-    var list = document.getElementById("categoryList");
     var meta = document.getElementById("runPickerMeta");
-    if (!DRIVE_LATEST_JSON_FILE_ID || !DRIVE_API_KEY){
-      empty.hidden = false; list.innerHTML = "";
-      document.getElementById("latestEmpty").querySelector("p").textContent =
-        "Drive isn't configured yet (DRIVE_LATEST_JSON_FILE_ID / DRIVE_API_KEY in docs/app.js) — see scripts/README-qa-dashboard.md.";
+    if (!WORKER_URL){
+      empty.hidden = false;
+      empty.querySelector("p").textContent = "This page isn't configured yet — WORKER_URL is empty in docs/app.js.";
       return;
     }
     meta.textContent = "loading…";
-    var url = "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(DRIVE_LATEST_JSON_FILE_ID) +
-      "?alt=media&key=" + encodeURIComponent(DRIVE_API_KEY);
-    fetch(url).then(function(res){
-      if (!res.ok) throw new Error("Drive returned " + res.status);
-      return res.json();
-    }).then(function(run){
-      state.latestRun = run;
+    // Файл latest.json на Drive читает сам Worker, не эта страница — ему
+    // передаём только токен входа, он сам проверяет на GitHub, что этим
+    // токеном реально виден репозиторий, и только тогда отдаёт данные.
+    // См. cloudflare-worker/oauth-proxy.js, action "drive_latest".
+    fetch(WORKER_URL, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ action: "drive_latest", token: getToken() })
+    }).then(function(res){
+      return res.json().then(function(data){ return { ok: res.ok, data: data }; });
+    }).then(function(r){
+      if (!r.ok) throw new Error(r.data && r.data.error ? r.data.error : "request failed");
+      state.latestRun = r.data;
       renderLatest();
       renderHeader();
     }).catch(function(err){

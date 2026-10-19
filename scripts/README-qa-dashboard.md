@@ -1,18 +1,23 @@
 # QA — запуск тестов и результаты через GitHub
 
-Всё живёт в самом репозитории — никакого стороннего сайта. Форма на
-сайте (wordpress-plugin/) и дашборд на claude.ai из этой схемы выведены
+Запуск и данные — целиком через GitHub API (не сторонний бэкенд). Сама
+страница приложения хостится на Cloudflare Pages, а не на GitHub Pages
+— бесплатный план организации не даёт приватные GitHub Pages, см.
+`docs/README-setup.md` за подробностями. Форма на сайте
+(wordpress-plugin/) и дашборд на claude.ai из этой схемы выведены
 (подробности в самом низу).
 
-## Основной способ — веб-приложение (GitHub Pages)
+## Основной способ — веб-приложение (Cloudflare Pages)
 
-**https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/**
+Адрес — тот, что получился на шаге 1 `docs/README-setup.md` (вида
+`https://imagen-qa-runs.pages.dev`); сами подставьте, если ещё не
+настраивали — после настройки имеет смысл дописать сюда готовую ссылку.
 
 Настоящее веб-приложение: вход через GitHub, форма запуска, прогресс,
 результаты по категориям, баги, история — одна страница. Исходники —
-`docs/index.html` + `docs/app.js`. Разовая настройка (OAuth App,
-Cloudflare Worker, Drive API-ключ) — **`docs/README-setup.md`**, это
-отдельная инструкция, начните с неё.
+`docs/index.html` + `docs/app.js`. Разовая настройка (Cloudflare Pages,
+OAuth App, Cloudflare Worker, Drive API-ключ) — **`docs/README-setup.md`**,
+это отдельная инструкция, начните с неё.
 
 ## Запасной способ — GitHub Issue Form (без настройки, работает всегда)
 

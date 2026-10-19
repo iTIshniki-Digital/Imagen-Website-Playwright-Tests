@@ -1,90 +1,115 @@
 # Imagen QA Runs — веб-приложение, разовая настройка
 
-Это настоящее веб-приложение (не Issues, не claude.ai): страница на
-GitHub Pages, вход через ваш же GitHub-аккаунт, результаты и управление
-прогонами — всё в одном месте. Исходники — `docs/index.html` +
-`docs/app.js`, лежат в этом же репозитории.
+Настоящее веб-приложение: вход через ваш же GitHub-аккаунт, результаты и
+управление прогонами — всё в одном месте. Исходники — `docs/index.html`
++ `docs/app.js`, лежат в этом репозитории, но **хостится страница не на
+GitHub Pages, а на Cloudflare Pages** — бесплатный план организации на
+GitHub не поддерживает приватные Pages (только публичные репозитории
+или платный план), а делать репозиторий публичным нельзя — весь код
+клиента станет виден всем в интернете.
 
-Доступ к данным — ровно тот, что уже есть у вошедшего в GitHub-аккаунт:
-страница ничего не хранит и не обходит права репозитория, она просто
-делает те же запросы к GitHub API, что сделали бы вы сами.
+Сама же работа с данными всё равно идёт через GitHub: вход, запуск
+тестов, баги, история — обычные запросы к GitHub API с вашим токеном.
+То, что сама страница лежит на Cloudflare, ничего не меняет в правах
+доступа — Google Drive (результаты прогона) тоже отдаёт не сама
+страница, а Worker, и только тому, у кого есть настоящий доступ к
+репозиторию (это он сам каждый раз проверяет).
 
-Нужно настроить **4 вещи**, один раз. Каждая — несколько кликов, без
-терминала (кроме деплоя Worker'а — тоже через веб-интерфейс Cloudflare,
-но можно и через `wrangler`, на ваш выбор).
+Нужно настроить **4 вещи**, один раз, без терминала (кроме пары команд
+на последнем шаге, можно и через веб-интерфейс).
 
-## Шаг 1 — GitHub OAuth App (вход через GitHub)
+## Шаг 1 — Cloudflare Pages (хостинг самой страницы)
 
-1. https://github.com/settings/applications/new (это в ваших личных
-   настройках — прав админа организации не требует).
+1. https://dash.cloudflare.com/ → **Workers & Pages** → **Create
+   application** → **Upload your static files** (или "Pages" →
+   "Connect to Git", если хотите автодеплой из репозитория — тогда
+   Cloudflare сам предложит путь к папке `docs/build output directory`,
+   укажите `docs`; но простой способ ниже — просто руками загрузить
+   папку).
+2. Если "Upload your static files": перетащите в загрузку **оба** файла
+   — `docs/index.html` и `docs/app.js` (без самой папки `docs`, то есть
+   `index.html` должен лежать в КОРНЕ того, что загружаете).
+3. Project name — что-то простое и постоянное, например `imagen-qa-runs`
+   (от него зависит адрес).
+4. Deploy.
+5. Итоговый адрес — вида `https://imagen-qa-runs.pages.dev` — запомните
+   его, он нужен на следующих двух шагах.
+
+(Каждый раз, когда `docs/index.html`/`docs/app.js` в репозитории
+обновятся — нужно будет так же перезалить их в Cloudflare Pages: либо
+руками (Deployments → Create deployment → Upload), либо один раз
+настроить автодеплой через "Connect to Git" вместо ручной загрузки.)
+
+## Шаг 2 — GitHub OAuth App (вход через GitHub)
+
+1. https://github.com/settings/applications/new (личные настройки — не
+   нужны права админа на репозиторий/организацию).
 2. Заполнить:
    - **Application name**: `Imagen QA Runs`
-   - **Homepage URL**: `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
-   - **Authorization callback URL**: та же самая ссылка, слово в слово —
-     `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
+   - **Homepage URL**: адрес со страницы 1 (например `https://imagen-qa-runs.pages.dev`)
+   - **Redirect URI** (раньше называлось "Authorization callback URL"):
+     тот же адрес, слово в слово.
+   - Галочку **"Expire user access tokens"** — снять (иначе вход будет
+     работать только ~8 часов, а дальше просить войти заново).
 3. Register application.
-4. Скопируйте **Client ID** — он не секретный, пойдёт в код страницы.
-5. **Generate a new client secret** → скопируйте значение (показывается
-   один раз) — он уйдёт не в код, а в Cloudflare Worker на шаге 2.
+4. Скопируйте **Client ID** — не секретный, пойдёт в код страницы.
+5. **Generate a new client secret** → скопируйте значение — он уйдёт не
+   в код, а в Cloudflare Worker на шаге 3.
 
-## Шаг 2 — Cloudflare Worker (обмен кода на токен входа)
+## Шаг 3 — Cloudflare Worker (вход + чтение результатов с Drive)
 
-Зачем он вообще нужен: GitHub требует, чтобы client secret использовался
-только с сервера, никогда в коде страницы в браузере. Worker — это и
-есть тот самый маленький "сервер", только бесплатный и без поддержки
-инфраструктуры с нашей стороны.
+Зачем он нужен: две вещи, которые нельзя делать в коде страницы —
+GitHub требует client secret только с сервера, а ключ Google Drive
+нельзя класть в код страницы (его прочитает кто угодно через "View
+source", даже без входа). Worker — маленький бесплатный "сервер" на
+Cloudflare, который держит оба секрета и сам проверяет, что запрос
+пришёл от реального пользователя с доступом к репозиторию.
 
-1. https://dash.cloudflare.com/ → зарегистрироваться (если ещё нет
-   аккаунта — бесплатно, без карты для этого объёма).
-2. Workers & Pages → Create → Create Worker.
-3. Назовите как угодно (например `imagen-qa-oauth`) → Deploy (с
-   заготовкой — её сейчас заменим).
-4. Edit code (или "Quick edit") → стереть всё → вставить содержимое
-   файла `cloudflare-worker/oauth-proxy.js` из этого репозитория → Save
-   and deploy.
-5. Settings → Variables and Secrets → Add:
-   - `GITHUB_CLIENT_ID` — Client ID из шага 1 (можно как обычную переменную)
-   - `GITHUB_CLIENT_SECRET` — тот самый секрет из шага 1, тип **Secret**
-   - `ALLOWED_ORIGIN` — `https://itishniki-digital.github.io`
+1. Workers & Pages → Create → **Create Worker** (не Pages — это второй,
+   отдельный тип приложения в том же Cloudflare).
+2. Имя — например `imagen-qa-oauth` → Deploy (заготовку сейчас заменим).
+3. Edit code → стереть всё → вставить содержимое файла
+   `cloudflare-worker/oauth-proxy.js` из этого репозитория → Save and
+   deploy.
+4. Settings → Variables and Secrets → добавить:
+   - `GITHUB_CLIENT_ID` — Client ID из шага 2 (обычная переменная)
+   - `GITHUB_CLIENT_SECRET` — секрет из шага 2, тип **Secret**
+   - `ALLOWED_ORIGIN` — адрес со страницы 1, например `https://imagen-qa-runs.pages.dev` (без / на конце)
+   - `GITHUB_OWNER` — `iTIshniki-Digital`
+   - `GITHUB_REPO` — `Imagen-Website-Playwright-Tests`
+   - `DRIVE_LATEST_JSON_FILE_ID` — id файла `latest.json` на Google Drive
+     (см. `scripts/README-qa-dashboard.md`, раздел про
+     `GDRIVE_LATEST_JSON_FILE_ID` — тот же id)
+   - `DRIVE_API_KEY` — ключ из шага 4 ниже, тип **Secret**
    Save and deploy.
-6. Скопируйте адрес воркера сверху страницы — вида
-   `https://imagen-qa-oauth.<ваш-субдомен>.workers.dev`.
+5. Скопируйте адрес воркера — вида `https://imagen-qa-oauth.<субдомен>.workers.dev`.
 
-## Шаг 3 — Google Drive API-ключ (чтение результатов прогона)
+## Шаг 4 — Google Drive API-ключ
 
-Тот же файл `latest.json`, что CI уже обновляет на каждый прогон (см.
-`scripts/README-qa-dashboard.md`, раздел про `GDRIVE_LATEST_JSON_FILE_ID`
-— если ещё не создавали этот файл и секрет, сделайте сначала это).
+1. https://console.cloud.google.com/apis/credentials → тот же проект,
+   что уже использовался для отчётов.
+2. Если ключа ещё нет: Create Credentials → **API key** → в появившемся
+   окне **API restrictions** → выбрать Google Drive API. Application
+   restrictions можно оставить **None** — этот ключ теперь живёт только
+   внутри Worker'а (шаг 3), в код страницы не попадает и браузером
+   никогда не используется напрямую, так что ограничение по сайту ему
+   не нужно.
+3. Скопируйте ключ, вставьте в Worker как `DRIVE_API_KEY` (шаг 3.4).
 
-1. https://console.cloud.google.com/ → тот же проект, что уже
-   использовался для OAuth-токена отчётов (там же выписывались
-   `GDRIVE_CLIENT_ID`/`GDRIVE_CLIENT_SECRET`).
-2. APIs & Services → Library → **Google Drive API** → Enable (если ещё
-   не включено).
-3. APIs & Services → Credentials → Create Credentials → **API key**.
-4. Edit the key:
-   - API restrictions → Restrict key → только Google Drive API.
-   - Application restrictions → HTTP referrers → добавить
-     `https://itishniki-digital.github.io/*`.
-5. Скопируйте ключ.
+## Шаг 5 — Вписать значения в код страницы
 
-## Шаг 4 — Вписать все значения в код и включить Pages
-
-1. Откройте `docs/app.js` в этом репозитории, самое начало файла
-   (блок `CONFIG`), впишите:
+1. Откройте `docs/app.js`, самое начало (блок `CONFIG`), впишите:
    ```js
-   var GITHUB_CLIENT_ID = "...";           // шаг 1.4
-   var WORKER_URL = "https://....workers.dev"; // шаг 2.6
-   var DRIVE_LATEST_JSON_FILE_ID = "...";  // id файла latest.json на Drive
-   var DRIVE_API_KEY = "...";              // шаг 3.5
+   var GITHUB_CLIENT_ID = "...";  // шаг 2.4
+   var WORKER_URL = "https://....workers.dev"; // шаг 3.5
    ```
+   (Drive-ключ и id файла сюда НЕ идут — они теперь только в Worker'е.)
 2. Commit, push в `main`.
-3. GitHub → репозиторий → **Settings → Pages**:
-   - Source: **Deploy from a branch**
-   - Branch: **main**, папка **/docs** → Save.
-4. Через минуту-две откройте
-   `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
-   — должна появиться кнопка "Sign in with GitHub".
+3. Залейте обновлённые `docs/index.html` + `docs/app.js` в Cloudflare
+   Pages (см. конец шага 1 — Deployments → Create deployment → Upload,
+   если без автодеплоя).
+4. Откройте адрес со страницы 1 — должна появиться кнопка "Sign in with
+   GitHub".
 
 Готово — дальше это уже настоящее приложение: форма, запуск, прогресс,
 результаты, баги, история, всё на одной странице.
@@ -92,12 +117,12 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
 ## Если что-то не работает
 
 - **"Sign-in failed (state mismatch)"** — обычно открыли ссылку входа в
-  новой вкладке поверх старой попытки; просто нажмите "Sign in" заново.
+  новой вкладке поверх старой попытки; нажмите "Sign in" заново.
 - **Страница после входа говорит "no access to repo"** — у аккаунта,
-  которым вошли, нет доступа к `iTIshniki-Digital/Imagen-Website-Playwright-Tests`;
-  нужен обычный доступ коллаборатора (см. `scripts/README-qa-dashboard.md`).
+  которым вошли, нет доступа к `iTIshniki-Digital/Imagen-Website-Playwright-Tests`.
 - **"Start run" пишет про 403** — тот же случай, доступа мало для
   запуска (нужен хотя бы Write).
-- **Latest Run — "Drive isn't configured"** — не заполнен шаг 3/4 выше,
-  либо файл `latest.json` ещё ни разу не перезаписывался CI (прогонов
-  через новый pipeline ещё не было).
+- **Latest Run — "Couldn't load the latest run"** — проверьте, что в
+  Worker'е заполнены `DRIVE_LATEST_JSON_FILE_ID`/`DRIVE_API_KEY`/
+  `GITHUB_OWNER`/`GITHUB_REPO`, и что файл `latest.json` хоть раз
+  перезаписывался CI (т.е. был хотя бы один прогон через новый pipeline).
