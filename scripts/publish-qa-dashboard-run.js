@@ -116,16 +116,43 @@ async function main() {
   // так что screenshotUrl/videoUrl, записанные выше, уже попали туда.
 
   const jsonBody = JSON.stringify(run, null, 0);
-  await drive.files.update({
-    fileId: latestFileId,
-    media: { mimeType: 'application/json', body: bufferStream(jsonBody) },
-  });
+  let activeFileId = latestFileId;
+  try {
+    await drive.files.update({
+      fileId: activeFileId,
+      media: { mimeType: 'application/json', body: bufferStream(jsonBody) },
+    });
+  } catch (err) {
+    // Самый вероятный случай — GDRIVE_LATEST_JSON_FILE_ID указывает на файл,
+    // созданный не тем же Google-аккаунтом, что стоит за GDRIVE_REFRESH_TOKEN
+    // (например, залит руками через веб-интерфейс при первоначальной
+    // настройке) — тогда у этого аккаунта нет прав его перезаписывать, хотя
+    // создавать новые файлы в той же папке он может (её он видит как Editor).
+    // Не падаем молча: создаём новый файл под своим же аккаунтом и громко
+    // просим обновить секрет/настройки на новый id — дальше он уже будет
+    // перезаписываться нормально.
+    console.warn(
+      `Не удалось перезаписать файл ${activeFileId} (${err.message}). ` +
+        `Похоже, он создан другим Google-аккаунтом — создаю новый latest.json от имени текущего аккаунта.`
+    );
+    const { data } = await drive.files.create({
+      requestBody: { name: 'latest.json', parents: [folderId] },
+      media: { mimeType: 'application/json', body: bufferStream(jsonBody) },
+      fields: 'id',
+    });
+    activeFileId = data.id;
+    console.warn(
+      `НОВЫЙ id файла: ${activeFileId} — обновите секрет GDRIVE_LATEST_JSON_FILE_ID в GitHub ` +
+        `и переменную DRIVE_LATEST_JSON_FILE_ID в Cloudflare Worker на это значение, иначе дашборд продолжит смотреть на старый (пустой) файл.`
+    );
+  }
+
   // На случай, если файл раньше создавался без публичного доступа.
   await drive.permissions
-    .create({ fileId: latestFileId, requestBody: { role: 'reader', type: 'anyone' } })
+    .create({ fileId: activeFileId, requestBody: { role: 'reader', type: 'anyone' } })
     .catch(() => {}); // уже может быть выдано — не фатально
 
-  console.log(`QA-дашборд обновлён: https://www.googleapis.com/drive/v3/files/${latestFileId}?alt=media`);
+  console.log(`QA-дашборд обновлён: https://www.googleapis.com/drive/v3/files/${activeFileId}?alt=media`);
 }
 
 function bufferStream(text) {
