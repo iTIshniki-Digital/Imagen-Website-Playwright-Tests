@@ -339,14 +339,23 @@ function syncGithubIssues(run) {
 
     if (existing) {
       try {
-        gh(['issue', 'comment', String(existing), '--body', `Still failing as of run ${run.runId}.\n\n${body}`]);
+        // Тело — ВСЕГДА текущее состояние (свежий скриншот/видео/ошибка),
+        // не только коммент: веб-приложение (docs/app.js) при отрисовке
+        // бага читает именно body, а не историю комментариев — если
+        // оставить только коммент, в интерфейсе будет видна версия
+        // скриншота с момента первого создания issue, а не последняя
+        // рабочая (так и нашли этот баг 2026-10-19 — старые issues
+        // годами переживали смену формата ссылки на скриншот).
+        gh(['issue', 'edit', String(existing), '--body', body]);
+        gh(['issue', 'comment', String(existing), '--body', `Still failing as of run ${run.runId}.`]);
       } catch (err) {
-        console.warn(`Не удалось прокомментировать issue #${existing}: ${err.message}`);
+        console.warn(`Не удалось обновить issue #${existing}: ${err.message}`);
       }
     } else if (regressed) {
       try {
         gh(['issue', 'reopen', String(regressed)]);
-        gh(['issue', 'comment', String(regressed), '--body', `Regressed — failing again as of run ${run.runId}.\n\n${body}`]);
+        gh(['issue', 'edit', String(regressed), '--body', body]); // см. комментарий выше про свежее тело
+        gh(['issue', 'comment', String(regressed), '--body', `Regressed — failing again as of run ${run.runId}.`]);
       } catch (err) {
         console.warn(`Не удалось переоткрыть issue #${regressed}: ${err.message}`);
       }
