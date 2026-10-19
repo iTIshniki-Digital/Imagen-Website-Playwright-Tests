@@ -91,8 +91,19 @@ permissions" → Save, и тогда секрет `QA_BOT_TOKEN` можно уд
 4. GitHub → репозиторий → Settings → Secrets and variables → Actions →
    New repository secret → имя `GDRIVE_LATEST_JSON_FILE_ID`, значение —
    этот id.
-5. Тот же id нужен в `docs/app.js` (`DRIVE_LATEST_JSON_FILE_ID`) — см.
-   `docs/README-setup.md`, шаг 4.
+5. Тот же id нужен в Cloudflare Worker (переменная
+   `DRIVE_LATEST_JSON_FILE_ID`) — см. `docs/README-setup.md`, шаг 3. Он
+   же сам умеет самовосстанавливаться, если изначально указан на файл,
+   созданный не тем же Google-аккаунтом (пересоздаёт и громко просит
+   обновить id — см. `uploadFailureMedia`/`publishLatestJson` в
+   `scripts/publish-qa-dashboard-run.js`, живой случай был 2026-10-19).
+
+Отдельно — секрет **`GDRIVE_API_KEY`** (тот же ключ, что
+`DRIVE_API_KEY` в Worker'е, см. `docs/README-setup.md` шаг 4) — без него
+скриншоты в issues и в "Latest Run" не прикладываются вообще (находка
+2026-10-19: прямые ссылки `drive.google.com/uc?export=view` иногда не
+отдают картинку браузеру с активной Google-сессией, только через API с
+ключом — надёжно).
 
 ## Поддерживать категории в соответствии
 

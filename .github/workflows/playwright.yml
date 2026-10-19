@@ -139,6 +139,7 @@ jobs:
         GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         GDRIVE_LATEST_JSON_FILE_ID: ${{ secrets.GDRIVE_LATEST_JSON_FILE_ID }}
+        GDRIVE_API_KEY: ${{ secrets.GDRIVE_API_KEY }}
         BROWSERS: ${{ inputs.browsers }}
         SPEC_FILES: ${{ inputs.spec_files }}
         GREP: ${{ inputs.grep }}

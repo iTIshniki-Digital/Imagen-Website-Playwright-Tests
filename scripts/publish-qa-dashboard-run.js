@@ -31,6 +31,10 @@
 //   GDRIVE_LATEST_JSON_FILE_ID  — id ОДНОГО файла на Drive (см.
 //     scripts/README-qa-dashboard.md). Не задан — пропускаем публикацию
 //     в веб-приложение, но issues всё равно заводим (если есть GH_TOKEN).
+//   GDRIVE_API_KEY               — тот же ключ, что DRIVE_API_KEY в
+//     cloudflare-worker/oauth-proxy.js, нужен для надёжных ссылок на
+//     скриншоты (см. комментарий у uploadFailureMedia). Не задан —
+//     скриншоты просто не прикладываются, остальное не страдает.
 //   GH_TOKEN                    — для gh CLI (создание/закрытие issues).
 //     Не задан — пропускаем issues, но Drive всё равно публикуем (если
 //     заданы GDRIVE_*). Ничего из этого не валит сам прогон тестов.
@@ -87,7 +91,12 @@ function makeDriveClient() {
 
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({ refresh_token: refreshToken });
-  return { client: google.drive({ version: 'v3', auth: oauth2Client }), folderId };
+  // GDRIVE_API_KEY — тот же read-only ключ, что уже используется в
+  // cloudflare-worker/oauth-proxy.js (DRIVE_API_KEY) — нужен для ссылок на
+  // скриншоты, см. комментарий у screenshotUrl ниже. Не обязателен: без
+  // него скриншоты просто не прикладываются (видео и latest.json не
+  // страдают, у них свой формат ссылок).
+  return { client: google.drive({ version: 'v3', auth: oauth2Client }), folderId, apiKey: process.env.GDRIVE_API_KEY };
 }
 
 // Скриншоты и видео упавших проверок — каждый отдельным файлом, "anyone
@@ -99,6 +108,17 @@ function makeDriveClient() {
 // Видео — ссылкой на штатный просмотрщик Drive (.../file/d/<id>/view), а
 // не прямым <video src>: прямые ссылки на Drive не всегда отдают
 // byte-range (нужен для перемотки), просмотрщик это уже решает сам.
+//
+// Скриншоты — ссылкой на Drive API (.../alt=media&key=...), а НЕ на
+// drive.google.com/uc?export=view: та ссылка отдаёт файл напрямую через
+// curl/без Google-сессии, но у браузера, реально залогиненного в какой-то
+// Google-аккаунт, вместо картинки иногда открывается промежуточная
+// HTML-страница вместо самого файла — проверено вживую 2026-10-19,
+// картинки в приложении не показывались, а 303→200 с содержимым PNG
+// подтверждались только через curl. v3 files API с ключом отдаёт PNG
+// напрямую, без редиректа, тем же способом уже проверенным для
+// cloudflare-worker/oauth-proxy.js. Без GDRIVE_API_KEY — пропускаем
+// скриншот (видео и сам latest.json не страдают).
 async function uploadFailureMedia(run, drive) {
   for (const check of run.totals.failingChecks) {
     if (check.screenshotPath && fs.existsSync(check.screenshotPath)) {
@@ -109,7 +129,9 @@ async function uploadFailureMedia(run, drive) {
           fields: 'id',
         });
         await drive.client.permissions.create({ fileId: data.id, requestBody: { role: 'reader', type: 'anyone' } });
-        check.screenshotUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
+        check.screenshotUrl = drive.apiKey
+          ? `https://www.googleapis.com/drive/v3/files/${data.id}?alt=media&key=${drive.apiKey}`
+          : `https://drive.google.com/uc?export=view&id=${data.id}`; // фолбэк, если ключ не задан — тот же риск промежуточной страницы
       } catch (err) {
         console.warn(`Не удалось загрузить скриншот для ${check.key}: ${err.message}`);
       }
