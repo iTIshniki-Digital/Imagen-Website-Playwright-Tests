@@ -50,6 +50,25 @@ const { categoryForFile, categoryName } = require('./qa-dashboard-categories');
 const RESULTS_JSON = 'playwright-report/results.json';
 const BUG_LABEL = 'qa-bug';
 
+// Видео прикладываем не ко всем упавшим проверкам, а только там, где один
+// статичный скриншот не объясняет суть — многошаговые воронки (упало на
+// каком-то шаге, скриншот покажет только последний) и интерактивность/
+// скролл (важна последовательность, не конечное состояние). Для всего
+// остального (статичные assert'ы — цены, битые ссылки, доступность,
+// консоль) скриншота достаточно, видео только грузит Drive и отвлекает.
+// Пополните список, если найдётся ещё один тест, где без видео непонятно.
+const VIDEO_WORTHY_FILES = new Set([
+  'signup-funnel.spec.ts',
+  'quiz-full-walkthrough.spec.ts',
+  'localized-funnel.spec.ts',
+  'video-funnel.spec.ts',
+  'video-quiz-full-walkthrough.spec.ts',
+  'mobile-funnel.spec.ts',
+  'interactive-widgets.spec.ts',
+  'scroll-behavior.spec.ts',
+  'real-estate.spec.ts',
+]);
+
 async function main() {
   if (!fs.existsSync(RESULTS_JSON)) {
     console.warn(`${RESULTS_JSON} не найден — нечего публиковать.`);
@@ -425,11 +444,14 @@ function buildRunSummary(report) {
       if (status === 'failed') {
         const shot = (last.attachments || []).find((a) => a.name === 'screenshot' && a.path);
         if (shot && !check.screenshotPath) check.screenshotPath = shot.path;
-        // 'video' — вложение только когда playwright.config.ts пишет video
-        // (у нас 'retain-on-failure': записывается для каждого теста, но
-        // остаётся только у упавших — так что здесь он есть почти всегда).
-        const vid = (last.attachments || []).find((a) => a.name === 'video' && a.path);
-        if (vid && !check.videoPath) check.videoPath = vid.path;
+        // Видео — только для файлов из VIDEO_WORTHY_FILES (см. определение
+        // выше): Playwright записывает его для каждого упавшего теста
+        // ('retain-on-failure'), но грузим и прикладываем не всё подряд —
+        // там, где скриншота достаточно, видео только отвлекает.
+        if (VIDEO_WORTHY_FILES.has(spec.file)) {
+          const vid = (last.attachments || []).find((a) => a.name === 'video' && a.path);
+          if (vid && !check.videoPath) check.videoPath = vid.path;
+        }
       }
     }
   }
