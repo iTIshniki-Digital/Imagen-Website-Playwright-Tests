@@ -19,9 +19,9 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
    настройках — прав админа организации не требует).
 2. Заполнить:
    - **Application name**: `Imagen QA Runs`
-   - **Homepage URL**: `https://itishnikidigital.github.io/Imagen-Website-Playwright-Tests/`
+   - **Homepage URL**: `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
    - **Authorization callback URL**: та же самая ссылка, слово в слово —
-     `https://itishnikidigital.github.io/Imagen-Website-Playwright-Tests/`
+     `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
 3. Register application.
 4. Скопируйте **Client ID** — он не секретный, пойдёт в код страницы.
 5. **Generate a new client secret** → скопируйте значение (показывается
@@ -45,7 +45,7 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
 5. Settings → Variables and Secrets → Add:
    - `GITHUB_CLIENT_ID` — Client ID из шага 1 (можно как обычную переменную)
    - `GITHUB_CLIENT_SECRET` — тот самый секрет из шага 1, тип **Secret**
-   - `ALLOWED_ORIGIN` — `https://itishnikidigital.github.io`
+   - `ALLOWED_ORIGIN` — `https://itishniki-digital.github.io`
    Save and deploy.
 6. Скопируйте адрес воркера сверху страницы — вида
    `https://imagen-qa-oauth.<ваш-субдомен>.workers.dev`.
@@ -65,7 +65,7 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
 4. Edit the key:
    - API restrictions → Restrict key → только Google Drive API.
    - Application restrictions → HTTP referrers → добавить
-     `https://itishnikidigital.github.io/*`.
+     `https://itishniki-digital.github.io/*`.
 5. Скопируйте ключ.
 
 ## Шаг 4 — Вписать все значения в код и включить Pages
@@ -83,7 +83,7 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
    - Source: **Deploy from a branch**
    - Branch: **main**, папка **/docs** → Save.
 4. Через минуту-две откройте
-   `https://itishnikidigital.github.io/Imagen-Website-Playwright-Tests/`
+   `https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/`
    — должна появиться кнопка "Sign in with GitHub".
 
 Готово — дальше это уже настоящее приложение: форма, запуск, прогресс,
@@ -94,7 +94,7 @@ GitHub Pages, вход через ваш же GitHub-аккаунт, резул�
 - **"Sign-in failed (state mismatch)"** — обычно открыли ссылку входа в
   новой вкладке поверх старой попытки; просто нажмите "Sign in" заново.
 - **Страница после входа говорит "no access to repo"** — у аккаунта,
-  которым вошли, нет доступа к `iTishnikiDigital/Imagen-Website-Playwright-Tests`;
+  которым вошли, нет доступа к `iTIshniki-Digital/Imagen-Website-Playwright-Tests`;
   нужен обычный доступ коллаборатора (см. `scripts/README-qa-dashboard.md`).
 - **"Start run" пишет про 403** — тот же случай, доступа мало для
   запуска (нужен хотя бы Write).

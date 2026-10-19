@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 define('IMAGEN_QA_VERSION', '1.3.0');
-define('IMAGEN_QA_REPO', 'iTishnikiDigital/Imagen-Website-Playwright-Tests');
+define('IMAGEN_QA_REPO', 'iTIshniki-Digital/Imagen-Website-Playwright-Tests'); // организация сменилась 2026-10-19
 define('IMAGEN_QA_WORKFLOW', 'playwright.yml');
 define('IMAGEN_QA_BRANCH', 'main');
 

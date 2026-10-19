@@ -9,7 +9,7 @@
      GitHub's and Google's side (the viewer's own OAuth token / the
      referrer-restricted key), never here.
      ===================================================================== */
-  var OWNER = "iTishnikiDigital";
+  var OWNER = "iTIshniki-Digital"; // организация сменилась 2026-10-19 (был личный аккаунт iTishnikiDigital)
   var REPO = "Imagen-Website-Playwright-Tests";
   var WORKFLOW_FILE = "playwright.yml";
   var GITHUB_CLIENT_ID = "Ov23liOhDUGvGWL8CUh6"; // OAuth App → Client ID (docs/README-setup.md step 1)

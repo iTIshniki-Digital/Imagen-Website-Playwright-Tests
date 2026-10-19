@@ -6,7 +6,7 @@
 
 ## Основной способ — веб-приложение (GitHub Pages)
 
-**https://itishnikidigital.github.io/Imagen-Website-Playwright-Tests/**
+**https://itishniki-digital.github.io/Imagen-Website-Playwright-Tests/**
 
 Настоящее веб-приложение: вход через GitHub, форма запуска, прогресс,
 результаты по категориям, баги, история — одна страница. Исходники —
