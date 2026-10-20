@@ -103,14 +103,32 @@ main{max-width:1180px; margin:0 auto; padding:22px 20px 60px; display:flex; flex
 .empty p{margin:0; color:var(--muted); max-width:46ch; font-size:13.5px;}
 
 .field-group{display:flex; flex-direction:column; gap:8px;}
+.lbl-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.lbl-row .lbl{margin-bottom:0;}
+.link-btn{border:none; background:none; color:var(--accent-ink); font-size:12px; font-weight:600;
+  cursor:pointer; padding:2px 0;}
+.link-btn:hover{text-decoration:underline;}
 .chip-row{display:flex; flex-wrap:wrap; gap:8px;}
 .chip{display:flex; align-items:center; gap:7px; border:1px solid var(--line); background:var(--surface-2);
   border-radius:999px; padding:7px 13px; font-size:13px; cursor:pointer; user-select:none;}
 .chip input{accent-color:var(--accent); width:14px; height:14px; margin:0;}
 .chip:has(input:checked){border-color:var(--accent-line); background:var(--accent-tint); color:var(--accent-ink);}
-.chip.all{font-weight:600;}
+.chip.all{font-weight:600; align-self:flex-start;}
 .file-count{font-size:11px; color:var(--faint);}
 .chip:has(input:checked) .file-count{color:var(--accent-ink); opacity:.75;}
+
+/* Stacked "What to check" category blocks — one category per row, its own
+   checkbox + name, plus a plain (unchecked) list of what it actually tests. */
+.cat-stack{display:flex; flex-direction:column; gap:8px;}
+.cat-block{border:1px solid var(--line); background:var(--surface-2); border-radius:10px; padding:4px 13px;}
+.cat-block:has(input:checked){border-color:var(--accent-line); background:var(--accent-tint);}
+.cat-block-head{display:flex; align-items:center; gap:9px; padding:9px 0; cursor:pointer; user-select:none;}
+.cat-block-head input{accent-color:var(--accent); width:14px; height:14px; margin:0; flex:0 0 auto;}
+.cat-block-name{font-size:13px; font-weight:600; flex:1 1 auto;}
+.cat-block:has(input:checked) .cat-block-name{color:var(--accent-ink);}
+.cat-block:has(input:checked) .file-count{color:var(--accent-ink); opacity:.75;}
+.cat-block-list{margin:0 0 10px; padding:0 0 0 29px; display:flex; flex-direction:column; gap:3px;
+  list-style:disc; color:var(--muted); font-size:12.5px; line-height:1.4;}
 .adv{border:1px solid var(--line); border-radius:10px; padding:4px 14px 2px; background:var(--surface-2);}
 .adv summary{cursor:pointer; padding:10px 0; font-size:13px; font-weight:560;}
 .adv .adv-body{display:flex; flex-direction:column; gap:12px; padding:2px 0 14px;}
@@ -261,13 +279,17 @@ footer.note{max-width:1180px; margin:0 auto 40px; padding:0 20px; font-size:11.5
 
       <form id="runForm">
         <div class="field-group">
-          <label class="lbl">Browsers</label>
+          <div class="lbl-row">
+            <label class="lbl">Browsers</label>
+            <button type="button" id="browserAllBtn" class="link-btn">Select all</button>
+          </div>
           <div class="chip-row" id="browserChips"></div>
         </div>
 
         <div class="field-group" style="margin-top:14px;">
           <label class="lbl">What to check</label>
-          <div class="chip-row" id="categoryChips"></div>
+          <label class="chip all" id="catAllChip"><input type="checkbox" id="catAll" checked><span>Full suite (all categories)</span></label>
+          <div class="cat-stack" id="categoryChips"></div>
           <div id="fileLimitMsg" class="limit-warn" hidden></div>
         </div>
 

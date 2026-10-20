@@ -22,18 +22,70 @@
 
   /* Same categories as scripts/qa-dashboard-categories.js and
      .github/ISSUE_TEMPLATE/qa-run.yml — THREE places, keep them in sync. */
+  // 4-й элемент — краткое описание того, что конкретно проверяет категория
+  // (для вкладки Run Tests, по образцу старого клиентского дашборда — там
+  // под каждой категорией был список её проверок). Не обязано быть
+  // дословным списком test() внутри файлов, просто честное описание сути.
   var CATEGORIES = [
-    ["homepage-nav", "Homepage & Navigation (Desktop 1600px)", ["tests/homepage.spec.ts"]],
-    ["signup-flow", "Desktop Signup Flow (full)", ["tests/signup-funnel.spec.ts","tests/quiz-full-walkthrough.spec.ts"]],
-    ["multi-language", "Multi-Language Signup (Rotate)", ["tests/localization.spec.ts","tests/localized-funnel.spec.ts","tests/translation-review.spec.ts"]],
-    ["video-page", "Video Page (full flow)", ["tests/video-funnel.spec.ts","tests/video-quiz-full-walkthrough.spec.ts"]],
-    ["mobile", "Mobile (real phone or emulation)", ["tests/mobile-funnel.spec.ts"]],
-    ["ios", "iOS / Apple Devices", ["tests/ios-and-accessibility.spec.ts"]],
-    ["pricing", "Pricing (Rotate regions)", ["tests/pricing-api.spec.ts","tests/pricing-rendered.spec.ts"]],
-    ["console-sweep", "Cross-page Console/HTTP Sweep", ["tests/site-health.spec.ts"]],
-    ["functional-gaps", "Functional Gaps", ["tests/form-validation.spec.ts","tests/navigation-links.spec.ts","tests/cta-buttons.spec.ts","tests/language-switcher.spec.ts","tests/content-templates.spec.ts","tests/podcast-content-template.spec.ts","tests/cookie-banner.spec.ts"]],
-    ["visual-ux", "Visual / UX Gaps", ["tests/responsive.spec.ts","tests/tablet-sweep.spec.ts","tests/media-video.spec.ts","tests/interactive-widgets.spec.ts","tests/scroll-behavior.spec.ts"]],
-    ["real-estate", "Real Estate Webapp", ["tests/real-estate.spec.ts"]]
+    ["homepage-nav", "Homepage & Navigation (Desktop 1600px)", ["tests/homepage.spec.ts"], [
+      "Homepage loads within ~5 seconds",
+      "No red console errors (analytics/trackers ignored as noise)",
+      "No 4xx/5xx network responses on load",
+      "Hero “Get Started” leads into the signup flow",
+      "Top-nav “Get Started” leads into the signup flow",
+    ]],
+    ["signup-flow", "Desktop Signup Flow (full)", ["tests/signup-funnel.spec.ts","tests/quiz-full-walkthrough.spec.ts"], [
+      "Hero email submit leads to step-2",
+      "Step-2 email field is pre-filled from the hero form",
+      "First form step (name, dropdown, terms) submits",
+      "Full questionnaire walkthrough completes",
+      "Download page shows the Mac/PC buttons",
+    ]],
+    ["multi-language", "Multi-Language Signup (Rotate)", ["tests/localization.spec.ts","tests/localized-funnel.spec.ts","tests/translation-review.spec.ts"], [
+      "Each of 8 locales renders with the right <html lang> and a translated title",
+      "Hero CTA on every locale leads to its localized step-2 form",
+      "Page title + hero button text checked for lost meaning with Claude, not just structure",
+    ]],
+    ["video-page", "Video Page (full flow)", ["tests/video-funnel.spec.ts","tests/video-quiz-full-walkthrough.spec.ts"], [
+      "Video hero email submit leads to video step-2",
+      "Full video questionnaire walkthrough completes",
+      "Video download page shows the confirmation screen",
+    ]],
+    ["mobile", "Mobile (real phone or emulation)", ["tests/mobile-funnel.spec.ts"], [
+      "Mobile onboarding (~12 screens) completes with name + email",
+      "Mobile download step redirects correctly after email",
+    ]],
+    ["ios", "iOS / Apple Devices", ["tests/ios-and-accessibility.spec.ts"], [
+      "Tap targets are at least 24px",
+      "Tab key moves a visible focus ring through the page",
+      "Autoplay videos are muted and have playsinline",
+      "Every visible link has an accessible name (screen-reader check)",
+    ]],
+    ["pricing", "Pricing (Rotate regions)", ["tests/pricing-api.spec.ts","tests/pricing-rendered.spec.ts"], [
+      "Pricing API returns consistent prices for every currency",
+      "Rendered prices on the page match the API values",
+    ]],
+    ["console-sweep", "Cross-page Console/HTTP Sweep", ["tests/site-health.spec.ts"], [
+      "No console/network errors across every key page",
+    ]],
+    ["functional-gaps", "Functional Gaps", ["tests/form-validation.spec.ts","tests/navigation-links.spec.ts","tests/cta-buttons.spec.ts","tests/language-switcher.spec.ts","tests/content-templates.spec.ts","tests/podcast-content-template.spec.ts","tests/cookie-banner.spec.ts"], [
+      "Form validation blocks empty/invalid email",
+      "Every nav/footer link resolves (no 404s)",
+      "CTA buttons exist on key pages and link somewhere real",
+      "Language switcher preserves the current page",
+      "Blog and podcast pages follow their content template",
+      "Cookie consent banner can be accepted and stays accepted",
+    ]],
+    ["visual-ux", "Visual / UX Gaps", ["tests/responsive.spec.ts","tests/tablet-sweep.spec.ts","tests/media-video.spec.ts","tests/interactive-widgets.spec.ts","tests/scroll-behavior.spec.ts"], [
+      "No layout overflow at 768px/375px on the homepage",
+      "No overflow or broken images across every key page at 768px",
+      "No broken images/videos on key pages",
+      "FAQ accordion and carousels work",
+      "Page content doesn’t go transparent after scrolling",
+    ]],
+    ["real-estate", "Real Estate Webapp", ["tests/real-estate.spec.ts"], [
+      "Real estate trial button redirects into the signup flow",
+    ]],
   ];
   function categoryName(slug){ var c = CATEGORIES.filter(function(x){return x[0]===slug;})[0]; return c ? c[1] : (slug || "Other"); }
 
@@ -179,20 +231,39 @@
     label.innerHTML = '<input type="checkbox" value="'+b[0]+'" '+(i===0?"checked":"")+'><span>'+esc(b[1])+'</span>';
     browserChips.appendChild(label);
   });
+  document.getElementById("browserAllBtn").addEventListener("click", function(){
+    Array.prototype.slice.call(browserChips.querySelectorAll("input")).forEach(function(i){ i.checked = true; });
+  });
 
+  // "What to check": one stacked block per category (checkbox + name in the
+  // head, a plain bulleted list of what it actually tests underneath) —
+  // reworked 2026-10-20 to match the layout idea of the client's old manual
+  // dashboard (category, then its checked items, then the next category),
+  // using our own real check descriptions (CATEGORIES[i][3]), not chips.
   var categoryChips = document.getElementById("categoryChips");
-  var allChipLabel = document.createElement("label");
-  allChipLabel.className = "chip all";
-  allChipLabel.innerHTML = '<input type="checkbox" id="catAll" checked><span>Full suite</span>';
-  categoryChips.appendChild(allChipLabel);
-  var catAllInput = allChipLabel.querySelector("input");
+  var catAllInput = document.getElementById("catAll");
   var catInputs = [];
   CATEGORIES.forEach(function(c){
-    var label = document.createElement("label");
-    label.className = "chip";
-    label.innerHTML = '<input type="checkbox" value="'+c[0]+'"><span>'+esc(c[1])+'</span> <span class="file-count">'+c[2].length+' file'+(c[2].length>1?"s":"")+'</span>';
-    categoryChips.appendChild(label);
-    catInputs.push(label.querySelector("input"));
+    var fileCount = c[2].length;
+    var descriptions = c[3] || [];
+    var block = document.createElement("div");
+    block.className = "cat-block";
+
+    var head = document.createElement("label");
+    head.className = "cat-block-head";
+    head.innerHTML = '<input type="checkbox" value="'+c[0]+'"><span class="cat-block-name">'+esc(c[1])+'</span>' +
+      '<span class="file-count">'+fileCount+' file'+(fileCount>1?"s":"")+'</span>';
+    block.appendChild(head);
+
+    if (descriptions.length){
+      var ul = document.createElement("ul");
+      ul.className = "cat-block-list";
+      ul.innerHTML = descriptions.map(function(d){ return "<li>"+esc(d)+"</li>"; }).join("");
+      block.appendChild(ul);
+    }
+
+    categoryChips.appendChild(block);
+    catInputs.push(head.querySelector("input"));
   });
   function updateFileLimit(){
     var picked = catInputs.filter(function(i){ return i.checked; });
