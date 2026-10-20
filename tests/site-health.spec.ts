@@ -14,10 +14,10 @@ test.describe('Console/Network sweep across key pages', () => {
       await page.goto(path);
       await page.waitForLoadState('load');
 
-      expect(issues.consoleErrors, `Ошибки в консоли на ${path}:\n${issues.consoleErrors.join('\n')}`).toEqual([]);
+      expect(issues.consoleErrors, `Console errors on ${path}:\n${issues.consoleErrors.join('\n')}`).toEqual([]);
       expect(
         issues.failedRequests,
-        `Проваленные запросы на ${path}:\n${issues.failedRequests.join('\n')}`
+        `Failed requests on ${path}:\n${issues.failedRequests.join('\n')}`
       ).toEqual([]);
     });
   }

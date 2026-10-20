@@ -22,7 +22,7 @@ export class VideoStepTwoPage extends BasePage {
   async fillAndSubmit(firstName: string, lastName: string, email: string): Promise<void> {
     await expect(
       this.firstNameInput,
-      'Форма /video/step-2/ не найдена — возможно, изменилась вёрстка'
+      'The /video/step-2/ form was not found — the layout may have changed'
     ).toBeVisible({ timeout: 10000 });
     await this.firstNameInput.fill(firstName);
     await this.lastNameInput.fill(lastName);

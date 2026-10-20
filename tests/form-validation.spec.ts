@@ -18,7 +18,7 @@ test.describe('Step-2 form validation (negative cases)', () => {
     await stepTwoPage.submitButton.click({ force: true });
 
     await page.waitForTimeout(1500);
-    await expect(page, 'Пустой email не должен пропускать дальше step-2').toHaveURL(/\/step-2\//);
+    await expect(page, "An empty email shouldn't let the form past step-2").toHaveURL(/\/step-2\//);
   });
 
   test('malformed email does not submit the form', async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe('Step-2 form validation (negative cases)', () => {
     await stepTwoPage.submitButton.click({ force: true });
 
     await page.waitForTimeout(1500);
-    await expect(page, 'Невалидный email не должен пропускать дальше step-2').toHaveURL(/\/step-2\//);
+    await expect(page, "An invalid email shouldn't let the form past step-2").toHaveURL(/\/step-2\//);
   });
 
   // НАХОДКА 2026-09-26, не ожидание: форма step-2 реально отправляется
@@ -54,7 +54,7 @@ test.describe('Step-2 form validation (negative cases)', () => {
 
     await expect(
       page,
-      'Форма ушла дальше воронки без согласия с условиями — фиксируем как факт для отчёта клиенту'
+      'The form moved past the funnel without agreeing to terms — recorded as a fact for the client report'
     ).not.toHaveURL(/\/step-2\//, { timeout: 10000 });
   });
 });

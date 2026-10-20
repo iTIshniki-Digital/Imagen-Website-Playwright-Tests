@@ -34,18 +34,18 @@ async function readSnippets(page: import('@playwright/test').Page) {
 
 async function askClaude(localeCode: string, pairs: { label: string; en: string; translated: string }[]) {
   const prompt =
-    `Ты проверяешь переводы сайта на язык с кодом "${localeCode}". Для каждой пары ` +
-    `(английский оригинал → перевод) скажи, передаёт ли перевод тот же смысл и ` +
-    `написан ли он на самом деле на языке "${localeCode}" (не остался ли случайно ` +
-    `английский текст, не похоже ли на непереведённый плейсхолдер или мусор). ` +
-    `НЕ придирайся к стилю, выбору синонимов, мелким культурным адаптациям или к тому, ` +
-    `что [page title] на другом языке короче английского — заголовки страниц часто ` +
-    `специально сокращают на других языках ради SEO, это нормальная практика, а не ошибка. ` +
-    `Отмечай как ошибку только: явную потерю смысла по сути (не длины), непереведённый ` +
-    `(оставшийся английским) текст, или бессмыслицу/мусор/плейсхолдер.\n\n` +
+    `You're reviewing this website's translations into the language with code "${localeCode}". For each pair ` +
+    `(English original → translation), say whether the translation conveys the same meaning and ` +
+    `whether it's actually written in the "${localeCode}" language (not accidentally left in ` +
+    `English, and not an untranslated placeholder or garbage text). ` +
+    `Do NOT nitpick style, choice of synonyms, minor cultural adaptations, or the fact that ` +
+    `a [page title] is shorter in another language than in English — page titles are often ` +
+    `deliberately shortened in other languages for SEO; that's normal practice, not an error. ` +
+    `Only flag as an error: an actual loss of meaning (not length), untranslated ` +
+    `(still-English) text, or nonsense/garbage/a placeholder.\n\n` +
     pairs.map((p, i) => `${i + 1}. [${p.label}] EN: "${p.en}" → ${localeCode}: "${p.translated}"`).join('\n') +
-    `\n\nОтветь СТРОГО JSON-массивом той же длины, без текста вокруг и без markdown-разметки:\n` +
-    `[{"ok": true|false, "reason": "кратко, только если ok:false, иначе пустая строка"}, ...]`;
+    `\n\nReply with STRICTLY a JSON array of the same length, no surrounding text and no markdown formatting:\n` +
+    `[{"ok": true|false, "reason": "brief, in English, only if ok:false, otherwise an empty string"}, ...]`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -62,7 +62,7 @@ async function askClaude(localeCode: string, pairs: { label: string; en: string;
   });
 
   if (!res.ok) {
-    throw new Error(`Anthropic API вернул ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    throw new Error(`Anthropic API returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
   const data = await res.json();
   const text = (data.content?.[0]?.text || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
@@ -70,16 +70,16 @@ async function askClaude(localeCode: string, pairs: { label: string; en: string;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error(`Не удалось разобрать ответ модели как JSON: ${text.slice(0, 300)}`);
+    throw new Error(`Couldn't parse the model's reply as JSON: ${text.slice(0, 300)}`);
   }
   if (!Array.isArray(parsed) || parsed.length !== pairs.length) {
-    throw new Error(`Модель вернула не тот формат (ожидали массив из ${pairs.length}): ${text.slice(0, 300)}`);
+    throw new Error(`Model returned the wrong shape (expected an array of ${pairs.length}): ${text.slice(0, 300)}`);
   }
   return parsed;
 }
 
 test.describe('Translation review (#13)', () => {
-  test.skip(!process.env.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY не задан — проверка пропущена, см. scripts/README-qa-dashboard.md');
+  test.skip(!process.env.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY is not set — check skipped, see scripts/README-qa-dashboard.md');
 
   for (const locale of localesData.locales) {
     if (locale.code === 'en') continue;
@@ -87,7 +87,7 @@ test.describe('Translation review (#13)', () => {
     test(`${locale.code} (${locale.path}) translation makes sense`, async ({ page, browserName }) => {
       // Текст не меняется от браузера к браузеру — незачем и платить за
       // проверку перевода трижды (см. тот же приём в ios-and-accessibility.spec.ts).
-      test.skip(browserName !== 'chromium', 'Проверка текста: достаточно одного браузера');
+      test.skip(browserName !== 'chromium', 'Text check: one browser is enough');
 
       // Свежий английский вариант — в отдельной вкладке ТОГО ЖЕ контекста
       // (не browser.newPage(), у него нет Cloudflare bypass-заголовка —
@@ -107,11 +107,11 @@ test.describe('Translation review (#13)', () => {
         { label: 'hero button', en: englishSnippets.cta, translated: snippets.cta },
       ].filter((p) => p.en && p.translated); // пустые (не нашли элемент) пропускаем, не шлём мусор модели
 
-      expect(pairs.length, `На ${locale.path} не нашлось текста для сравнения (title/hero-кнопка)`).toBeGreaterThan(0);
+      expect(pairs.length, `No text to compare (title/hero button) found on ${locale.path}`).toBeGreaterThan(0);
 
       const verdicts = await askClaude(locale.code, pairs);
       verdicts.forEach((v, i) => {
-        expect(v.ok, `[${pairs[i].label}] "${pairs[i].translated}" — ${v.reason || 'похоже, перевод не передаёт смысл оригинала'}`).toBe(true);
+        expect(v.ok, `[${pairs[i].label}] "${pairs[i].translated}" — ${v.reason || "the translation doesn't seem to convey the original's meaning"}`).toBe(true);
       });
     });
   }

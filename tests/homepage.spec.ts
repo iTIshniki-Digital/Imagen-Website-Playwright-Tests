@@ -17,10 +17,10 @@ test.describe('Homepage', () => {
     // при в остальном чистой загрузке — это разница в сетевых условиях
     // CI-раннера и особенностях движка WebKit, а не деградация сайта.
     // Слишком туго — и тест ловит инфраструктурный шум вместо реальных проблем.
-    expect(loadTime, `Страница грузилась ${loadTime}ms`).toBeLessThan(6000);
+    expect(loadTime, `Page took ${loadTime}ms to load`).toBeLessThan(6000);
 
-    expect(issues.consoleErrors, `Ошибки в консоли:\n${issues.consoleErrors.join('\n')}`).toEqual([]);
-    expect(issues.failedRequests, `Проваленные запросы:\n${issues.failedRequests.join('\n')}`).toEqual([]);
+    expect(issues.consoleErrors, `Console errors:\n${issues.consoleErrors.join('\n')}`).toEqual([]);
+    expect(issues.failedRequests, `Failed requests:\n${issues.failedRequests.join('\n')}`).toEqual([]);
   });
 
   test('hero CTA redirects to /step-2/ (handles both A/B variants)', async ({ page }, testInfo) => {

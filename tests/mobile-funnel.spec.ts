@@ -31,7 +31,7 @@ test.describe('Mobile funnel (iPhone 13 emulation)', () => {
 
     expect(
       taps,
-      'После закрытия промо-попапа hero-кнопка должна вести на /q/ с одного тапа. Если нет — что-то по-прежнему перекрывает её.'
+      "After closing the promo popup, the hero button should lead to /q/ with a single tap. If not, something is still covering it."
     ).toBe(1);
   });
 
@@ -46,22 +46,22 @@ test.describe('Mobile funnel (iPhone 13 emulation)', () => {
     await onboarding.walkToEmailScreen();
 
     testInfo.annotations.push({ type: 'onboarding-answers', description: String(onboarding.answered) });
-    expect(onboarding.answered, 'Онбординг должен задать хотя бы 5 вопросов с вариантами ответа').toBeGreaterThanOrEqual(5);
+    expect(onboarding.answered, 'Onboarding should ask at least 5 multiple-choice questions').toBeGreaterThanOrEqual(5);
 
     const { consentPreChecked } = await onboarding.submitEmail(TEST_EMAIL);
     testInfo.annotations.push({ type: 'consent-checkbox-pre-checked', description: String(consentPreChecked) });
 
     await expect(
       page.getByText(/check your email on desktop/i),
-      'После отправки email на мобильной воронке не показан экран «Check your email on desktop»'
+      'The "Check your email on desktop" screen did not appear after submitting email on the mobile funnel'
     ).toBeVisible({ timeout: 15000 });
     await expect(
       page.getByText(TEST_EMAIL),
-      'Экран «Check your email» не показывает введённый адрес'
+      'The "Check your email" screen does not show the entered address'
     ).toBeVisible();
     await expect(
       page.getByText(/download (for )?(mac|pc|windows)/i),
-      'На мобильном телефоне не должно быть кнопок скачивания приложения'
+      'There should be no app-download buttons on a mobile phone'
     ).toHaveCount(0);
   });
 });

@@ -35,7 +35,7 @@ test.describe('Quiz full walkthrough', () => {
       const quizPage = new PhotoQuizPage(page);
       await quizPage.answerUntilOffer();
 
-      await expect(quizPage.claimPaidPlanButton.first(), 'Должны дойти до экрана платного предложения').toBeVisible({ timeout: 10000 });
+      await expect(quizPage.claimPaidPlanButton.first(), 'Should reach the paid-plan offer screen').toBeVisible({ timeout: 10000 });
 
       // Намеренно НИКОГДА не кликаем claimPaidPlanButton — это ведёт к
       // реальному оформлению платной подписки. Только free trial.
@@ -43,7 +43,7 @@ test.describe('Quiz full walkthrough', () => {
 
       await expect(
         quizPage.downloadMacButton.or(quizPage.downloadPcButton).first(),
-        'После free trial должна показаться страница загрузки (checklist #10)'
+        'After the free trial, the download page should appear (checklist #10)'
       ).toBeVisible({ timeout: 15000 });
     } else {
       test.info().annotations.push({ type: 'quiz-widget', description: 'questionnaire' });
@@ -54,10 +54,10 @@ test.describe('Quiz full walkthrough', () => {
       // «Congrats! You have 1,500 free edits! You’re all set…» появляется без смены
       // URL (форма на той же странице). Поэтому проверяем сам экран, а не адрес —
       // уход с /step-2/ сам по себе ничего не доказывает.
-      expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
+      expect(answeredCount, 'The questionnaire should actually progress, not just leave step-2').toBeGreaterThan(5);
       await expect(
         page.getByText(/you.re all set/i).first(),
-        'После последнего вопроса /questionnaire/ не показан финальный экран «You’re all set»'
+        'The final "You’re all set" screen did not appear after the last /questionnaire/ question'
       ).toBeVisible({ timeout: 15000 });
     }
   });
@@ -72,10 +72,10 @@ test.describe('Quiz full walkthrough', () => {
     const questionnairePage = new QuestionnairePage(page);
     const answeredCount = await questionnairePage.answerAllSteps();
 
-    expect(answeredCount, 'Анкета /questionnaire/ должна реально продвинуться').toBeGreaterThan(5);
+    expect(answeredCount, 'The /questionnaire/ form should actually progress').toBeGreaterThan(5);
     await expect(
       page.getByText(/you.re all set/i).first(),
-      'На /questionnaire/ не показан финальный экран «You’re all set»'
+      'The final "You’re all set" screen did not appear on /questionnaire/'
     ).toBeVisible({ timeout: 15000 });
   });
 });

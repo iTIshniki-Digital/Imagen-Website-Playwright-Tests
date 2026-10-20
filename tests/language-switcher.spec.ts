@@ -7,6 +7,6 @@ test('language switcher link preserves the current page path', async ({ page }) 
   const switcher = new LanguageSwitcher(page);
   const href = await switcher.getSwitcherHref('fr');
 
-  expect(href, 'Ссылка переключателя на французский не найдена в DOM').toBeTruthy();
-  expect(href, `Переключатель должен вести на /fr/pricing/, а ведёт на: ${href}`).toMatch(/\/fr\/pricing\/?$/);
+  expect(href, 'No French switcher link found in the DOM').toBeTruthy();
+  expect(href, `Switcher should lead to /fr/pricing/, but leads to: ${href}`).toMatch(/\/fr\/pricing\/?$/);
 });

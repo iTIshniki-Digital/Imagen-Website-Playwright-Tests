@@ -5,10 +5,10 @@ test.describe('Locale rendering', () => {
   for (const locale of localesData.locales) {
     test(`${locale.code} (${locale.path}) renders localized content`, async ({ page }) => {
       const response = await page.goto(locale.path);
-      expect(response?.ok(), `Страница ${locale.path} вернула ${response?.status()}`).toBeTruthy();
+      expect(response?.ok(), `Page ${locale.path} returned ${response?.status()}`).toBeTruthy();
 
       const lang = await page.evaluate(() => document.documentElement.lang);
-      expect(lang, `У страницы ${locale.path} пустой <html lang="">`).toBeTruthy();
+      expect(lang, `Page ${locale.path} has an empty <html lang="">`).toBeTruthy();
 
       if (locale.code === 'en') return;
 
@@ -28,9 +28,9 @@ test.describe('Locale rendering', () => {
       // перевели": lang/title совпадают с английской версией.
       expect(
         lang,
-        `lang ("${lang}") не отличается от английского ("${englishLang}") — похоже, локаль не переключилась`
+        `lang ("${lang}") is the same as English ("${englishLang}") — the locale doesn't seem to have switched`
       ).not.toBe(englishLang);
-      expect(title, 'Title совпадает с английским — страница не переведена').not.toBe(englishTitle);
+      expect(title, 'Title is the same as English — the page is not translated').not.toBe(englishTitle);
     });
   }
 });

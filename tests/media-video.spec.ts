@@ -39,7 +39,7 @@ test.describe('Video widgets across key pages', () => {
           .map((v) => `${v.currentSrc || v.getAttribute('src') || '(no src)'} — error code ${v.error?.code ?? 'n/a'}`)
       );
 
-      expect(brokenVideos, `Битые видео на ${path}:\n${brokenVideos.join('\n')}`).toEqual([]);
+      expect(brokenVideos, `Broken videos on ${path}:\n${brokenVideos.join('\n')}`).toEqual([]);
     });
   }
 });

@@ -81,7 +81,7 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
       const blank = await page.evaluate(BLANK_VISIBLE_SLOTS);
       expect(
         blank,
-        `На ${path} в видимых карточках пустые суммы (${blank.join(', ')}): посетитель видит пропуски вместо цен, например «/monthly base fee» и «Save ___ /year»`
+        `Blank amounts in visible cards on ${path} (${blank.join(', ')}): a visitor sees gaps instead of prices, e.g. "/monthly base fee" and "Save ___ /year"`
       ).toEqual([]);
     });
   }
@@ -96,7 +96,7 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
 
     const rendered = await firstPriceText(page, 'mega_promo_limitless_monthly_price');
     const amount = Number(rendered.replace(/[^\d.]/g, ''));
-    expect(amount, `Промо-цена на /pricing/ «${rendered}», в API ${api.mega_promo_limitless_monthly_price}`).toBe(
+    expect(amount, `Promo price on /pricing/ is "${rendered}", API says ${api.mega_promo_limitless_monthly_price}`).toBe(
       api.mega_promo_limitless_monthly_price
     );
   });
@@ -116,7 +116,7 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
     for (const key of keys) {
       const text = await firstPriceText(page, key);
       const shown = Number(text.replace(/[^\d.]/g, ''));
-      expect(shown, `${key}: на сайте «${text}», в API ${api[key]} (в Chromium в обычной сессии WordPress-значения, в Firefox/WebKit — API)`).toBe(api[key]);
+      expect(shown, `${key}: site shows "${text}", API says ${api[key]} (Chromium shows WordPress values in a plain session, Firefox/WebKit show the API value)`).toBe(api[key]);
     }
   });
 
@@ -130,13 +130,13 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
         .map((el) => (el.textContent || '').trim())
         .filter((t) => /\d/.test(t))
     );
-    expect(texts.length, 'На /de/pricing/ не нашлось ни одной отрендеренной цены').toBeGreaterThan(0);
+    expect(texts.length, 'No rendered price found on /de/pricing/').toBeGreaterThan(0);
   });
 
   test('localized /de/pricing/ shows prices in the local currency, not USD', async ({ plainPage: page }) => {
     test.fail(
       true,
-      'Ожидает клиента: на немецкой странице цены в долларах (10 $, 0,5 $), хотя API отдаёт EUR и ещё 8 валют'
+      'Waiting on the client: the German page shows prices in dollars (10 $, 0,5 $) even though the API returns EUR and 8 other currencies'
     );
 
     await page.goto('/de/pricing/');
@@ -149,7 +149,7 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
     );
     expect(
       texts.filter((t) => t.includes('$')),
-      'На /de/pricing/ цены в долларах, а должны быть в валюте страницы'
+      'Prices on /de/pricing/ are in dollars, but should be in the page’s local currency'
     ).toEqual([]);
   });
 });

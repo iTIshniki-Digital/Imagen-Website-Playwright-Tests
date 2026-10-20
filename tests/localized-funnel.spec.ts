@@ -41,7 +41,7 @@ test.describe('Localized funnel (#12)', () => {
       await closePromoPopup(page, 4000);
 
       const cta = page.locator('xpath=//a[contains(@class,"elementor-button") and not(@href) and not(ancestor::header)]').filter({ hasText: /\S/ }).first();
-      await expect(cta, `На ${path} не нашлась hero-кнопка без href`).toBeAttached();
+      await expect(cta, `No hero button without href found on ${path}`).toBeAttached();
       await cta.scrollIntoViewIfNeeded();
       // Обработчик hero-кнопки (без href) подключается чуть позже самого Elementor —
       // первый клик на свежей странице иногда не срабатывает (и на /es/, /fr/ так и было
@@ -64,17 +64,17 @@ test.describe('Localized funnel (#12)', () => {
       test.info().annotations.push({ type: 'hero-clicks-to-step-2', description: String(clicks) });
 
       // Сравниваем путь, а не регулярку: префикс локали (/br/, /kr/…) легко сломать экранированием.
-      expect(new URL(page.url()).pathname.replace(/\/$/, ''), `Hero-кнопка на ${path} не привела на ${expectedPath} (3 клика)`).toBe(expectedPath);
+      expect(new URL(page.url()).pathname.replace(/\/$/, ''), `Hero button on ${path} didn't lead to ${expectedPath} (3 clicks)`).toBe(expectedPath);
 
-      await expect(page.locator('form#step2'), `На ${path}step-2 нет формы #step2`).toBeVisible();
-      await expect(page.locator('#step_2_email'), `На ${path}step-2 нет поля email`).toBeVisible();
+      await expect(page.locator('form#step2'), `No #step2 form on ${path}step-2`).toBeVisible();
+      await expect(page.locator('#step_2_email'), `No email field on ${path}step-2`).toBeVisible();
 
       // Текст кнопки отправки должен быть переведён, а не английский «Sign up & download»
       // (для английской версии — проверка просто что кнопка есть).
       const submit = (await page.locator('form#step2').getByRole('button').first().innerText()).trim();
-      expect(submit.length, `На ${path}step-2 пустая кнопка отправки`).toBeGreaterThan(0);
+      expect(submit.length, `Empty submit button on ${path}step-2`).toBeGreaterThan(0);
       if (path !== '/') {
-        expect(submit, `На ${path}step-2 кнопка отправки осталась на английском`).not.toMatch(/Sign up & download/);
+        expect(submit, `Submit button on ${path}step-2 is still in English`).not.toMatch(/Sign up & download/);
       }
     });
   }

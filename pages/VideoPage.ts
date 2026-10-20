@@ -25,7 +25,7 @@ export class VideoPage extends BasePage {
   async submitEmail(email: string = TEST_EMAIL): Promise<void> {
     await expect(
       this.emailInput,
-      'Email-поле на /video/ не найдено — возможно, изменилась вёрстка или активен другой A/B-вариант'
+      'Email field on /video/ was not found — the layout may have changed, or another A/B variant is active'
     ).toBeVisible({ timeout: 10000 });
     await this.emailInput.fill(email);
     await this.submitButton.click();

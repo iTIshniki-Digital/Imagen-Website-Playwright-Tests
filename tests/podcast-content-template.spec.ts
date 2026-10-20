@@ -13,14 +13,14 @@ test('a podcast episode renders with a title and body content', async ({ page })
     els.map((el) => el.getAttribute('href') || '')
   );
   const href = hrefs.find((h) => /\/podcast\/\d+\/?$/.test(h));
-  expect(href, 'На /podcast/ не нашлось ни одной ссылки на эпизод вида /podcast/<id>/').toBeTruthy();
+  expect(href, 'No episode link in the /podcast/<id>/ shape found on /podcast/').toBeTruthy();
 
   await page.goto(href!);
 
   const heading = page.getByRole('heading', { level: 1 }).first();
-  await expect(heading, 'На странице эпизода нет заголовка h1').toBeVisible();
+  await expect(heading, 'No h1 heading on the episode page').toBeVisible();
   await expect(heading).not.toBeEmpty();
 
   const bodyText = await page.locator('.elementor-widget-theme-post-content').first().innerText();
-  expect(bodyText.trim().length, 'Описание эпизода выглядит пустым').toBeGreaterThan(200);
+  expect(bodyText.trim().length, 'Episode description looks empty').toBeGreaterThan(200);
 });

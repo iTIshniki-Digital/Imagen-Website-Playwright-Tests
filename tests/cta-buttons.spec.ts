@@ -51,7 +51,7 @@ test.describe('CTA buttons across key pages', () => {
           }));
       });
 
-      expect(ctas.length, `На ${path} не нашлось ни одной видимой основной CTA-кнопки`).toBeGreaterThan(0);
+      expect(ctas.length, `No visible primary CTA button found on ${path}`).toBeGreaterThan(0);
 
       const checkedHrefs = new Set<string>();
       const broken: string[] = [];
@@ -79,7 +79,7 @@ test.describe('CTA buttons across key pages', () => {
         await page.waitForTimeout(200);
       }
 
-      expect(broken, `Битые CTA-ссылки на ${path}:\n${broken.join('\n')}`).toEqual([]);
+      expect(broken, `Broken CTA links on ${path}:\n${broken.join('\n')}`).toEqual([]);
     });
   }
 });

@@ -19,9 +19,9 @@ test.describe('Responsive layout', () => {
 
       expect(
         scrollWidth,
-        `Горизонтальный скролл: контент ${scrollWidth}px шире видимой области ${clientWidth}px`
+        `Horizontal scroll: content is ${scrollWidth}px, wider than the ${clientWidth}px visible area`
       ).toBeLessThanOrEqual(clientWidth);
-      expect(brokenImages, `Битые картинки:\n${brokenImages.join('\n')}`).toEqual([]);
+      expect(brokenImages, `Broken images:\n${brokenImages.join('\n')}`).toEqual([]);
 
       // Скриншот — для ручной визуальной проверки вёрстки человеком
       // (объективные вещи вроде скролла/битых картинок уже проверены выше).

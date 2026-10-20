@@ -32,7 +32,7 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
   test.beforeAll(async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const usd = await fetchPricing(request, 'USD');
-    expect(usd.status, 'USD должна отдаваться с 200').toBe(200);
+    expect(usd.status, 'USD should respond with 200').toBe(200);
     usdBody = usd.body!;
     await request.dispose();
   });
@@ -40,8 +40,8 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
   for (const currency of supported.currencies) {
     test(`${currency}: responds 200 with the same schema as USD`, async ({ request }) => {
       const { status, body } = await fetchPricing(request, currency);
-      expect(status, `${currency} вернула ${status}`).toBe(200);
-      expect(Object.keys(body!).sort(), `Набор полей у ${currency} отличается от USD`).toEqual(
+      expect(status, `${currency} returned ${status}`).toBe(200);
+      expect(Object.keys(body!).sort(), `${currency}'s set of fields differs from USD`).toEqual(
         Object.keys(usdBody).sort()
       );
     });
@@ -50,28 +50,28 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
       const { body } = await fetchPricing(request, currency);
       const p = body!;
 
-      expect(p.cloud_storage_500_current_price, `${currency}: 500GB со скидкой дороже обычной цены`).toBeLessThanOrEqual(
+      expect(p.cloud_storage_500_current_price, `${currency}: discounted 500GB is pricier than the original price`).toBeLessThanOrEqual(
         p.cloud_storage_500_original_price
       );
-      expect(p.cloud_storage_2000_current_price, `${currency}: 2000GB со скидкой дороже обычной цены`).toBeLessThanOrEqual(
+      expect(p.cloud_storage_2000_current_price, `${currency}: discounted 2000GB is pricier than the original price`).toBeLessThanOrEqual(
         p.cloud_storage_2000_original_price
       );
-      expect(p.flat_fee_plans.annual.limitless.price, `${currency}: годовой безлимит не дешевле месячного`).toBeLessThan(
+      expect(p.flat_fee_plans.annual.limitless.price, `${currency}: annual limitless is not cheaper than monthly`).toBeLessThan(
         p.flat_fee_plans.monthly.limitless.price
       );
-      expect(p.culling_monthly_price_for_annual_plan, `${currency}: culling на годовом не дешевле месячного`).toBeLessThanOrEqual(
+      expect(p.culling_monthly_price_for_annual_plan, `${currency}: culling on the annual plan is not cheaper than monthly`).toBeLessThanOrEqual(
         p.culling_monthly_price_for_monthly_plan
       );
-      expect(p.mega_promo_limitless_monthly_price, `${currency}: промо-цена безлимита не ниже оригинальной`).toBeLessThan(
+      expect(p.mega_promo_limitless_monthly_price, `${currency}: promo price for limitless is not below the original`).toBeLessThan(
         p.original_limitless_monthly_price
       );
-      expect(p.base_payment_price, `${currency}: базовый платёж должен быть положительным`).toBeGreaterThan(0);
+      expect(p.base_payment_price, `${currency}: base payment should be positive`).toBeGreaterThan(0);
     });
 
     if (currency !== 'USD') {
       test(`${currency}: prices are localized, not USD relabeled`, async ({ request }) => {
         const { body } = await fetchPricing(request, currency);
-        expect(JSON.stringify(body), `${currency} вернула ровно те же цены, что USD — валюта не применилась`).not.toBe(
+        expect(JSON.stringify(body), `${currency} returned the exact same prices as USD — currency wasn't applied`).not.toBe(
           JSON.stringify(usdBody)
         );
       });
@@ -89,13 +89,13 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
 // теста выглядел бы как «ожидаемая» находка клиента и не был бы виден.
 test('the API answers both the USD request and the unsupported-currency request', async ({ request }) => {
   const usd = await fetchPricing(request, 'USD');
-  expect(usd.status, 'USD должна отдаваться с 200').toBe(200);
+  expect(usd.status, 'USD should respond with 200').toBe(200);
   const bogus = await request.get(`${PRICING_API}?currency=XXX`);
-  expect(bogus.status(), 'Запрос с валютой XXX должен получить HTTP-ответ').toBeGreaterThan(0);
+  expect(bogus.status(), 'A request with currency XXX should get an HTTP response').toBeGreaterThan(0);
 });
 
 test('unsupported currency does not silently fall back to USD prices', async ({ request }) => {
-  test.fail(true, 'Клиентская находка: неподдерживаемая валюта молча даёт USD-цены с 200 вместо ошибки');
+  test.fail(true, 'Client finding: an unsupported currency silently returns USD prices with 200 instead of an error');
 
   const usd = await fetchPricing(request, 'USD');
   const bogus = await request.get(`${PRICING_API}?currency=XXX`);
@@ -104,5 +104,5 @@ test('unsupported currency does not silently fall back to USD prices', async ({ 
 
   const isErrorStatus = bogusStatus >= 400;
   const isDistinct = bogusBody !== null && bogusBody !== JSON.stringify(usd.body);
-  expect(isErrorStatus || isDistinct, 'XXX должна давать ошибку, а не USD-цены с 200').toBe(true);
+  expect(isErrorStatus || isDistinct, 'XXX should return an error, not USD prices with 200').toBe(true);
 });

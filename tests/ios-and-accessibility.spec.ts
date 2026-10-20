@@ -39,9 +39,9 @@ test.describe('Mobile touch and autoplay on iPhone (#20)', () => {
           }))
       );
 
-      expect(buttons.length, `На ${path} не нашлось ни одной кнопки с фоном`).toBeGreaterThan(0);
+      expect(buttons.length, `No button with a background found on ${path}`).toBeGreaterThan(0);
       const tooSmall = buttons.filter((b) => b.height < 24);
-      expect(tooSmall, `На ${path} кнопки ниже 24 px: ${JSON.stringify(tooSmall)}`).toEqual([]);
+      expect(tooSmall, `Buttons under 24px on ${path}: ${JSON.stringify(tooSmall)}`).toEqual([]);
 
       const below44 = buttons.filter((b) => b.height < 44).length;
       test.info().annotations.push({ type: `buttons-below-44px-${path}`, description: String(below44) });
@@ -51,7 +51,7 @@ test.describe('Mobile touch and autoplay on iPhone (#20)', () => {
   for (const path of KEY_PAGES) {
     test(`autoplay videos on ${path} are muted and playsinline`, async ({ page, browserName }) => {
       // DOM-проверка не зависит от движка: достаточно одного браузера.
-      test.skip(browserName !== 'chromium', 'DOM-проверка: достаточно одного браузера');
+      test.skip(browserName !== 'chromium', 'DOM check: one browser is enough');
       await page.goto(path, { waitUntil: 'load' });
       await page.waitForTimeout(1500);
 
@@ -68,7 +68,7 @@ test.describe('Mobile touch and autoplay on iPhone (#20)', () => {
 
       expect(
         offenders,
-        `На ${path} автоплей-видео без muted или playsinline — на iPhone не стартует в строке: ${JSON.stringify(offenders)}`
+        `Autoplay video on ${path} without muted or playsinline — won't start inline on iPhone: ${JSON.stringify(offenders)}`
       ).toEqual([]);
     });
   }
@@ -93,15 +93,15 @@ test.describe('Keyboard and screen-reader basics (#20)', () => {
       if (ring !== null) stops.push(ring);
     }
 
-    expect(stops.length, 'Клавиша Tab не переводит фокус на элементы страницы').toBeGreaterThan(10);
+    expect(stops.length, 'The Tab key does not move focus to page elements').toBeGreaterThan(10);
     const withRing = stops.filter(Boolean).length;
-    expect(withRing / stops.length, `Видимый фокус только у ${withRing} из ${stops.length} остановок Tab`).toBeGreaterThanOrEqual(0.8);
+    expect(withRing / stops.length, `Only ${withRing} of ${stops.length} Tab stops had a visible focus ring`).toBeGreaterThanOrEqual(0.8);
   });
 
   for (const path of KEY_PAGES) {
     test(`every visible link on ${path} has an accessible name`, async ({ page, browserName }) => {
       // DOM-проверка не зависит от движка: достаточно одного браузера.
-      test.skip(browserName !== 'chromium', 'DOM-проверка: достаточно одного браузера');
+      test.skip(browserName !== 'chromium', 'DOM check: one browser is enough');
       await page.goto(path, { waitUntil: 'load' });
       await page.waitForTimeout(1500);
 
@@ -122,7 +122,7 @@ test.describe('Keyboard and screen-reader basics (#20)', () => {
         return out;
       });
 
-      expect(unnamed, `На ${path} видимые ссылки без имени (скринридер скажет только «ссылка»): ${JSON.stringify(unnamed)}`).toEqual([]);
+      expect(unnamed, `Visible links on ${path} with no accessible name (a screen reader would just say "link"): ${JSON.stringify(unnamed)}`).toEqual([]);
     });
   }
 });

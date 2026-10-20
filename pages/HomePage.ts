@@ -63,7 +63,7 @@ export class HomePage extends BasePage {
 
     await expect(
       this.heroLinkVariant.first(),
-      'Hero "Get Started" не найдена ни в виде формы, ни в виде ссылки — возможно, новый A/B-вариант или реальное изменение вёрстки'
+      'Hero "Get Started" was found as neither a form nor a link — possibly a new A/B variant or a real layout change'
     ).toBeVisible({ timeout: 10000 });
     await this.heroLinkVariant.first().click();
     return 'link';

@@ -41,7 +41,7 @@ export class MobileOnboardingPage extends BasePage {
    */
   async tapHeroUntilOnboarding(maxTaps = 3): Promise<number> {
     const cta = this.page.locator(HERO_MOBILE_CTA).filter({ hasText: /get started/i }).first();
-    await expect(cta, 'На мобильной главной не нашлась hero-кнопка «Get started»').toBeAttached();
+    await expect(cta, 'The "Get started" hero button was not found on the mobile homepage').toBeAttached();
     await cta.scrollIntoViewIfNeeded();
 
     for (let tap = 1; tap <= maxTaps; tap++) {
@@ -49,7 +49,7 @@ export class MobileOnboardingPage extends BasePage {
       // координаты указывают за экран — тап уходит мимо, как и было в прогонах 2026-10-06.
       await cta.scrollIntoViewIfNeeded();
       const box = await cta.boundingBox();
-      if (!box) throw new Error('hero-кнопка скрыта — не могу тапнуть');
+      if (!box) throw new Error('hero button is hidden — cannot tap it');
       // Клик мышью по координатам: touchscreen.tap на этой странице не давал
       // перехода, пока попап перекрывал кнопку.
       await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -60,7 +60,7 @@ export class MobileOnboardingPage extends BasePage {
         // первый тап проигнорирован — повторяем
       }
     }
-    throw new Error(`hero-кнопка не привела на /q/ после ${maxTaps} тапов`);
+    throw new Error(`hero button did not lead to /q/ after ${maxTaps} taps`);
   }
 
   /**
@@ -78,7 +78,7 @@ export class MobileOnboardingPage extends BasePage {
 
       if (body === lastBody) {
         repeats++;
-        expect(repeats, `Онбординг завис на экране: «${body.slice(0, 120)}»`).toBeLessThan(3);
+        expect(repeats, `Onboarding is stuck on the screen: "${body.slice(0, 120)}"`).toBeLessThan(3);
       } else {
         repeats = 0;
       }
@@ -93,14 +93,14 @@ export class MobileOnboardingPage extends BasePage {
       }
 
       const clickable = await this.firstClickableOption();
-      expect(clickable, `Нет кнопки или варианта для продолжения на экране: «${body.slice(0, 120)}»`).not.toBeNull();
+      expect(clickable, `No button or option to continue on the screen: "${body.slice(0, 120)}"`).not.toBeNull();
       if (clickable !== 'Continue') this.answered++;
 
       await this.page.getByText(clickable!, { exact: true }).first().click({ timeout: 4000 });
       await this.page.waitForTimeout(1200);
     }
 
-    throw new Error(`Онбординг не дошёл до экрана email за ${maxSteps} шагов`);
+    throw new Error(`Onboarding did not reach the email screen within ${maxSteps} steps`);
   }
 
   /**

@@ -32,7 +32,7 @@ test.describe('Interactive widgets', () => {
       await page.goto(path);
 
       const item = page.locator('.e-n-accordion-item').first();
-      await expect(item, `Нет FAQ-аккордеона на ${path}`).toBeVisible();
+      await expect(item, `No FAQ accordion on ${path}`).toBeVisible();
 
       const summary = item.locator('.e-n-accordion-item-title');
       await summary.scrollIntoViewIfNeeded();
@@ -49,7 +49,7 @@ test.describe('Interactive widgets', () => {
         await page.waitForTimeout(500);
       }
 
-      await expect(item, 'Аккордеон не открылся после клика(ов) по заголовку').toHaveJSProperty('open', true);
+      await expect(item, 'Accordion did not open after clicking the title').toHaveJSProperty('open', true);
     });
   }
 });
@@ -62,7 +62,7 @@ test.describe('Carousels', () => {
 
       const carousels = page.locator('.e-n-carousel.swiper');
       const total = await carousels.count();
-      expect(total, `На ${path} не нашлось ни одной карусели`).toBeGreaterThan(0);
+      expect(total, `No carousel found on ${path}`).toBeGreaterThan(0);
 
       let exercised = 0;
       for (let i = 0; i < total; i++) {
@@ -79,7 +79,7 @@ test.describe('Carousels', () => {
         if (!hasNext && !hasBullets) continue;
 
         await carousel.scrollIntoViewIfNeeded();
-        await expect(carousel, `Карусель #${i} на ${path} не инициализировалась`).toHaveClass(/swiper-initialized/);
+        await expect(carousel, `Carousel #${i} on ${path} did not initialize`).toHaveClass(/swiper-initialized/);
 
         const before = await activeSlideIndex(carousel);
 
@@ -91,7 +91,7 @@ test.describe('Carousels', () => {
 
         await expect
           .poll(() => activeSlideIndex(carousel), {
-            message: `Карусель #${i} на ${path} не сменила активный слайд после ${hasNext ? 'кнопки «далее»' : 'клика по буллету'}`,
+            message: `Carousel #${i} on ${path} did not change its active slide after ${hasNext ? 'clicking "next"' : 'clicking a bullet'}`,
             timeout: 5000,
           })
           .not.toBe(before);
@@ -99,7 +99,7 @@ test.describe('Carousels', () => {
         exercised++;
       }
 
-      expect(exercised, `На ${path} ни одна карусель не оказалась доступной для проверки`).toBeGreaterThan(0);
+      expect(exercised, `No carousel on ${path} was available to check`).toBeGreaterThan(0);
     });
   }
 });

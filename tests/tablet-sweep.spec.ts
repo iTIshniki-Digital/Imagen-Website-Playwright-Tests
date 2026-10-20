@@ -16,9 +16,9 @@ test.describe('Tablet (768px) sweep across key pages', () => {
 
       expect(
         scrollWidth,
-        `Горизонтальный скролл на ${path}: контент ${scrollWidth}px шире видимой области ${clientWidth}px`
+        `Horizontal scroll on ${path}: content is ${scrollWidth}px, wider than the ${clientWidth}px visible area`
       ).toBeLessThanOrEqual(clientWidth);
-      expect(brokenImages, `Битые картинки на ${path}:\n${brokenImages.join('\n')}`).toEqual([]);
+      expect(brokenImages, `Broken images on ${path}:\n${brokenImages.join('\n')}`).toEqual([]);
     });
   }
 });

@@ -29,7 +29,7 @@ export class StepTwoPage extends BasePage {
   async fillAndSubmit(firstName: string, lastName: string, email: string = TEST_EMAIL): Promise<void> {
     await expect(
       this.firstNameInput,
-      'Форма step-2 не найдена — возможно, изменилась вёрстка после hero-CTA'
+      'The step-2 form was not found — the layout may have changed after the hero CTA'
     ).toBeVisible({ timeout: 10000 });
 
     await this.firstNameInput.fill(firstName);

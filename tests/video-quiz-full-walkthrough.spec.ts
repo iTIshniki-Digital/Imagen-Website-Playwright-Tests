@@ -45,9 +45,9 @@ test.describe('Video quiz full walkthrough', () => {
     //
     // Два отдельных ожидания, чтобы провал было видно точно: сколько вопросов
     // реально отвечено, и дошли ли до страницы загрузки после формы.
-    expect(answeredCount, 'Анкета должна реально продвинуться, а не просто уйти со step-2').toBeGreaterThan(5);
+    expect(answeredCount, 'The questionnaire should actually progress, not just leave step-2').toBeGreaterThan(5);
 
-    await expect(page, 'После «Finish setup» не открылась страница загрузки /video/download/').toHaveURL(/\/video\/download\/?/, { timeout: 15000 });
-    await expect(page.getByText(/you.re all set/i).first(), 'На /video/download/ нет подтверждения «You’re all set»').toBeVisible();
+    await expect(page, 'The /video/download/ download page did not open after "Finish setup"').toHaveURL(/\/video\/download\/?/, { timeout: 15000 });
+    await expect(page.getByText(/you.re all set/i).first(), 'No "You’re all set" confirmation on /video/download/').toBeVisible();
   });
 });

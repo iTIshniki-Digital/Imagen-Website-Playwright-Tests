@@ -29,7 +29,7 @@ test.describe('Signup funnel', () => {
     // то на /photo-quiz/, то на /questionnaire/ — тот же квиз-виджет под
     // двумя разными URL и даже разными темами оформления. Принимаем оба,
     // не привязываемся к приветственному тексту — он не универсален.
-    await expect(page, 'После step-2 должны попасть в квиз').toHaveURL(/\/(photo-quiz|questionnaire)\//, { timeout: 15000 });
+    await expect(page, 'After step-2 we should land on the quiz').toHaveURL(/\/(photo-quiz|questionnaire)\//, { timeout: 15000 });
 
     // Дальше в квиз намеренно не идём. Подтверждено вживую 2026-09-30: у
     // виджета не просто разное оформление между заходами, а РАЗНАЯ

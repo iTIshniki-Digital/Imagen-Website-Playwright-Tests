@@ -35,14 +35,14 @@ test.describe('Consent banner (#31)', () => {
 
     test.skip(
       shownOn === null,
-      'Баннер не появился ни на одной странице воронки в этой сессии. Он появляется не на каждом визите — проверка пропущена, а не пройдена (см. checklist #31).'
+      "The banner didn't appear on any funnel page in this session. It doesn't appear on every visit — skipped, not passed (see checklist #31)."
     );
 
     await accept.click();
-    await expect(accept, `После «Accept» на ${shownOn} баннер не скрылся`).toBeHidden({ timeout: 5000 });
+    await expect(accept, `After "Accept" on ${shownOn}, the banner didn't hide`).toBeHidden({ timeout: 5000 });
 
     await page.reload();
     await page.waitForTimeout(2500);
-    await expect(accept, `Баннер снова показан на ${shownOn} после «Accept» и перезагрузки`).toBeHidden();
+    await expect(accept, `Banner is shown again on ${shownOn} after "Accept" and a reload`).toBeHidden();
   });
 });

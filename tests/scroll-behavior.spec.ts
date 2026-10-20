@@ -69,7 +69,7 @@ test.describe('Scroll behavior (#37)', () => {
       await wheelScroll(page, 'up');
 
       const stuck = await page.evaluate(INVISIBLE_CONTENT);
-      expect(stuck, `После прокрутки до конца и обратно на ${path} остался невидимый контент`).toEqual([]);
+      expect(stuck, `Invisible content remains on ${path} after scrolling to the end and back`).toEqual([]);
     });
   }
 
@@ -87,14 +87,14 @@ test.describe('Scroll behavior (#37)', () => {
       });
 
     const atLoad = await readBanner();
-    expect(atLoad, 'Промо-полоса .sale-banner не найдена на главной').not.toBeNull();
-    expect(atLoad!.top, 'Промо-полоса должна быть видна сразу после загрузки').toBeGreaterThanOrEqual(0);
+    expect(atLoad, 'The .sale-banner promo banner was not found on the homepage').not.toBeNull();
+    expect(atLoad!.top, 'The promo banner should be visible right after load').toBeGreaterThanOrEqual(0);
 
     await wheelScroll(page, 'down');
     await wheelScroll(page, 'up');
 
     const afterReturn = await readBanner();
-    expect(afterReturn!.top, `После возврата наверх промо-полоса на top=${afterReturn!.top}px, а должна быть на экране`).toBeGreaterThanOrEqual(0);
-    expect(afterReturn!.opacity, 'После возврата наверх промо-полоса прозрачна').toBeGreaterThan(0.9);
+    expect(afterReturn!.top, `After scrolling back to the top, the promo banner is at top=${afterReturn!.top}px but should be on screen`).toBeGreaterThanOrEqual(0);
+    expect(afterReturn!.opacity, 'The promo banner is transparent after scrolling back to the top').toBeGreaterThan(0.9);
   });
 });

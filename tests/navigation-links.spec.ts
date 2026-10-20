@@ -5,7 +5,7 @@ import { NavigationPage } from '../pages/NavigationPage';
 test('every first-party header/footer link responds without 4xx/5xx', async ({ page, browserName }) => {
   // HTTP-статус ссылки не зависит от движка рендеринга — гоняем один раз,
   // чтобы не утраивать нагрузку на rate-limit защиты сайта (Cloudflare).
-  test.skip(browserName !== 'chromium', 'Проверка статус-кодов запускается только на chromium.');
+  test.skip(browserName !== 'chromium', 'Status-code check only runs on chromium.');
   // Десятки последовательных переходов — это дольше дефолтных 30с.
   test.setTimeout(5 * 60 * 1000);
 
@@ -30,5 +30,5 @@ test('every first-party header/footer link responds without 4xx/5xx', async ({ p
     await page.waitForTimeout(200);
   }
 
-  expect(broken, `Битые ссылки:\n${broken.join('\n')}`).toEqual([]);
+  expect(broken, `Broken links:\n${broken.join('\n')}`).toEqual([]);
 });
