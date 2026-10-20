@@ -25,7 +25,7 @@
   var CATEGORIES = [
     ["homepage-nav", "Homepage & Navigation (Desktop 1600px)", ["tests/homepage.spec.ts"]],
     ["signup-flow", "Desktop Signup Flow (full)", ["tests/signup-funnel.spec.ts","tests/quiz-full-walkthrough.spec.ts"]],
-    ["multi-language", "Multi-Language Signup (Rotate)", ["tests/localization.spec.ts","tests/localized-funnel.spec.ts"]],
+    ["multi-language", "Multi-Language Signup (Rotate)", ["tests/localization.spec.ts","tests/localized-funnel.spec.ts","tests/translation-review.spec.ts"]],
     ["video-page", "Video Page (full flow)", ["tests/video-funnel.spec.ts","tests/video-quiz-full-walkthrough.spec.ts"]],
     ["mobile", "Mobile (real phone or emulation)", ["tests/mobile-funnel.spec.ts"]],
     ["ios", "iOS / Apple Devices", ["tests/ios-and-accessibility.spec.ts"]],

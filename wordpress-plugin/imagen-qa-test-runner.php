@@ -58,7 +58,7 @@ function imagen_qa_scopes() {
         ],
         'multi-language' => [
             'label' => 'Multi-Language Signup (Rotate)',
-            'files' => ['tests/localization.spec.ts', 'tests/localized-funnel.spec.ts'],
+            'files' => ['tests/localization.spec.ts', 'tests/localized-funnel.spec.ts', 'tests/translation-review.spec.ts'],
         ],
         'video-page' => [
             'label' => 'Video Page (full flow)',

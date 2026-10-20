@@ -28,7 +28,7 @@ const CATEGORIES = {
   },
   'multi-language': {
     name: 'Multi-Language Signup (Rotate)',
-    files: ['tests/localization.spec.ts', 'tests/localized-funnel.spec.ts'],
+    files: ['tests/localization.spec.ts', 'tests/localized-funnel.spec.ts', 'tests/translation-review.spec.ts'],
   },
   'video-page': {
     name: 'Video Page (full flow)',
