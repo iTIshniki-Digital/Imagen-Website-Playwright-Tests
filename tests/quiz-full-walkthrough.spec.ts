@@ -26,7 +26,6 @@ test.describe('Quiz full walkthrough', () => {
     await homePage.continueToStepTwo();
     await expect(page).toHaveURL(/\/step-2\/?/);
 
-    await page.reload();
     await stepTwoPage.fillAndSubmit('Playwright', 'QA');
     await expect(page).toHaveURL(/\/(photo-quiz|questionnaire)\//, { timeout: 15000 });
 
@@ -56,25 +55,35 @@ test.describe('Quiz full walkthrough', () => {
       // уход с /step-2/ сам по себе ничего не доказывает.
       expect(answeredCount, 'The questionnaire should actually progress, not just leave step-2').toBeGreaterThan(5);
       await expect(
-        page.getByText(/you.re all set/i).first(),
+        page.locator(':visible').filter({ hasText: /you.re all set/i }).first(),
         'The final "You’re all set" screen did not appear after the last /questionnaire/ question'
       ).toBeVisible({ timeout: 15000 });
     }
   });
 
-  // Ветка /questionnaire/ выбирается редиректом воронки и в обычном прогоне может не
-  // попасться. Отдельный прямой заход гарантирует, что второй виджет (#9) проверяется
-  // в каждом прогоне.
-  test('questionnaire widget (/questionnaire/) reaches its end screen on a direct visit', async ({ page }) => {
+  // Ветка /questionnaire/ в обычной воронке (без ?promo=true) на новом сайте не
+  // встречается вообще — form.s2__form сама решает, куда вести, по наличию этого
+  // параметра (см. data-next-questionnaire/data-next-photo-quiz на форме, разведка
+  // 2026-10-27). Отдельный тест с ?promo=true гарантирует, что второй виджет (#9)
+  // проверяется в каждом прогоне, а не только когда так решит сайт.
+  //
+  // ВАЖНО: прямой заход на /questionnaire/ без полноценного прохождения /step-2/ не
+  // работает — первый экран (intro, спиннер "You're signed up") просто не запускается
+  // (разведка 2026-10-27). Идём как реальный посетитель: через форму с ?promo=true.
+  test('questionnaire widget (/questionnaire/, via ?promo=true) reaches its end screen', async ({ page }) => {
     test.setTimeout(3 * 60 * 1000);
-    await page.goto('/questionnaire/');
+
+    const stepTwoPage = new StepTwoPage(page);
+    await page.goto('/step-2/?promo=true');
+    await stepTwoPage.fillAndSubmit('Playwright', 'QA');
+    await expect(page).toHaveURL(/\/questionnaire\//, { timeout: 15000 });
 
     const questionnairePage = new QuestionnairePage(page);
     const answeredCount = await questionnairePage.answerAllSteps();
 
     expect(answeredCount, 'The /questionnaire/ form should actually progress').toBeGreaterThan(5);
     await expect(
-      page.getByText(/you.re all set/i).first(),
+      page.locator(':visible').filter({ hasText: /you.re all set/i }).first(),
       'The final "You’re all set" screen did not appear on /questionnaire/'
     ).toBeVisible({ timeout: 15000 });
   });

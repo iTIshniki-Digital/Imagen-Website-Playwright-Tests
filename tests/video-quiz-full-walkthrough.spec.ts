@@ -48,6 +48,6 @@ test.describe('Video quiz full walkthrough', () => {
     expect(answeredCount, 'The questionnaire should actually progress, not just leave step-2').toBeGreaterThan(5);
 
     await expect(page, 'The /video/download/ download page did not open after "Finish setup"').toHaveURL(/\/video\/download\/?/, { timeout: 15000 });
-    await expect(page.getByText(/you.re all set/i).first(), 'No "You’re all set" confirmation on /video/download/').toBeVisible();
+    await expect(page.locator(':visible').filter({ hasText: /you.re all set/i }).first(), 'No "You’re all set" confirmation on /video/download/').toBeVisible();
   });
 });
