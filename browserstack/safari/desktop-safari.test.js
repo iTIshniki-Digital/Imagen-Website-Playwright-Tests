@@ -49,13 +49,14 @@ async function openPage(path) {
 
 const CF_SKIP = 'Cloudflare не пропустил сессию BrowserStack (страница проверки «Just a moment…» не сменилась за 60 с). Нужно разрешить трафик BrowserStack для Safari-прогонов — см. «Что нужно от клиента».';
 
-// WP Rocket откладывает JS Elementor до первого действия пользователя (см.
-// browserstack/… и pages/pageActivation.ts в основном наборе). Колесо мыши — это
-// реальное действие; после него ждём elementorFrontend.
+// Сайт пересобран на Astro 2026-10 — Elementor/WP Rocket больше нет, поэтому
+// отложенной инициализации JS, которую раньше ждал wakeUp(), тоже нет. Оставлен
+// упрощённый вариант (реальное движение мыши/колесо) просто как имитация
+// настоящего посетителя, без ожидания elementorFrontend.
 async function wakeUp() {
   await driver.actions().move({ x: 300, y: 300 }).perform();
   await driver.executeScript('window.scrollBy(0, 150);');
-  await driver.wait(async () => driver.executeScript('return typeof window.elementorFrontend === "object";'), 15000);
+  await driver.sleep(500);
   await driver.executeScript('window.scrollBy(0, -150);');
   await driver.sleep(300);
 }
@@ -89,13 +90,16 @@ describe('Desktop Safari (macOS Sonoma, Safari 17)', () => {
     if (!(await openPage('/'))) return t.skip(CF_SKIP);
     await wakeUp();
 
-    const title = await driver.findElement(By.css('.e-n-accordion-item-title'));
+    // Сайт пересобран на Astro 2026-10 — тот же нативный <details>/<summary>,
+    // что был у Elementor-аккордеона, просто под классами .faq__row/.faq__q
+    // (разведка 2026-10-27, см. tests/interactive-widgets.spec.ts в основном наборе).
+    const title = await driver.findElement(By.css('.faq__q'));
     await driver.executeScript('arguments[0].scrollIntoView({block: "center"});', title);
     await driver.sleep(300);
     await title.click();
     await driver.sleep(800);
 
-    const open = await driver.executeScript('return document.querySelector(".e-n-accordion-item").open;');
+    const open = await driver.executeScript('return document.querySelector(".faq__row").open;');
     assert.equal(open, true, 'Аккордеон на Safari не открылся после клика');
   });
 
@@ -103,48 +107,35 @@ describe('Desktop Safari (macOS Sonoma, Safari 17)', () => {
     if (!(await openPage('/'))) return t.skip(CF_SKIP);
     await wakeUp();
 
-    // Карусель инициализируется лениво — сначала прокручиваем её в экран и ждём Swiper.
-    const pickCarousel = () =>
-      driver.executeScript(`
-        const el = Array.from(document.querySelectorAll('.e-n-carousel.swiper')).find((c) => {
-          const widget = c.closest('.elementor-widget');
-          return widget && widget.querySelector('.elementor-swiper-button-next') && c.getBoundingClientRect().width > 0;
-        });
-        if (!el) return false;
-        el.scrollIntoView({ block: 'center' });
-        return el.classList.contains('swiper-initialized');
-      `);
-    // Вложенные карусели Elementor на Safari не инициализировались даже после прокрутки
-    // к ним (Swiper и Elementor на странице есть, аккордеон работает). Это может быть
-    // расхождением Safari, а может — загрузкой бандла; без логов консоли в WebDriver
-    // Safari отличить нельзя. Поэтому не объявляем баг и не выдаём за пройденный тест:
-    // пропуск с причиной, открытый вопрос для расследования.
-    try {
-      await driver.wait(pickCarousel, 15000);
-    } catch {
-      return t.skip('Вложенная карусель главной не инициализировалась на Safari за 15 с. Открытый вопрос: баг Safari или загрузка бандла — без логов консоли в WebDriver не отличить.');
-    }
+    // Сайт пересобран на Astro 2026-10 — больше не Swiper, а обычный горизонтально
+    // скроллящийся <ul>/<div> со стрелками data-step="1"/"-1" (разведка 2026-10-27,
+    // см. tests/interactive-widgets.spec.ts в основном наборе). Контейнер со
+    // scrollLeft ищем рядом с кнопкой — он не всегда сам <ul> (на /business/ это
+    // родительский div), поэтому берём первый элемент с реальным горизонтальным
+    // переполнением в пределах ближайших 4 уровней предков. Скрипт возвращает
+    // ЧИСЛО (scrollLeft) или null — не DOM-элемент, тот через WebDriver не прочитать.
+    const SCROLL_LEFT_SCRIPT = `
+      function hasOverflow(el) { return el.scrollWidth - el.clientWidth > 20 && el.clientWidth > 100; }
+      const btn = document.querySelector('button[data-step="1"]');
+      if (!btn) return null;
+      btn.scrollIntoView({ block: 'center' });
+      let el = btn.parentElement;
+      for (let i = 0; i < 4 && el; i++, el = el.parentElement) {
+        if (hasOverflow(el)) return el.scrollLeft;
+        const candidate = Array.from(el.querySelectorAll('*')).find(hasOverflow);
+        if (candidate) return candidate.scrollLeft;
+      }
+      return null;
+    `;
+    const scrollLeft = () => driver.executeScript(SCROLL_LEFT_SCRIPT);
 
-    const activeIndex = () =>
-      driver.executeScript(`
-        const el = Array.from(document.querySelectorAll('.e-n-carousel.swiper-initialized')).find((c) => {
-          const widget = c.closest('.elementor-widget');
-          return widget && widget.querySelector('.elementor-swiper-button-next') && c.getBoundingClientRect().width > 0;
-        });
-        return el ? Array.from(el.querySelectorAll('.swiper-slide')).findIndex((x) => x.classList.contains('swiper-slide-active')) : null;
-      `);
+    const before = await scrollLeft();
+    if (before === null) return t.skip('На главной не нашлась карусель (button[data-step="1"]) — см. tests/interactive-widgets.spec.ts.');
 
-    const before = await activeIndex();
-    await driver.executeScript(`
-      const el = Array.from(document.querySelectorAll('.e-n-carousel.swiper-initialized')).find((c) => {
-        const widget = c.closest('.elementor-widget');
-        return widget && widget.querySelector('.elementor-swiper-button-next') && c.getBoundingClientRect().width > 0;
-      });
-      el.closest('.elementor-widget').querySelector('.elementor-swiper-button-next').click();
-    `);
+    await driver.executeScript('document.querySelector(\'button[data-step="1"]\').click();');
     await driver.sleep(1200);
-    const after = await activeIndex();
-    assert.notEqual(after, before, `Карусель на Safari не сменила активный слайд после «далее» (${before} → ${after})`);
+    const after = await scrollLeft();
+    assert.notEqual(after, before, `Карусель на Safari не сдвинулась после «далее» (scrollLeft ${before} → ${after})`);
   });
 
   test('rendered pricing matches the API for the currency the page shows, with no blank slots', async (t) => {
