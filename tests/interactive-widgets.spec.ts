@@ -1,47 +1,61 @@
-import { Locator } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { wakeUpPageScripts } from '../pages/pageActivation';
 
-// checklist #36 — раньше не было стабильных селекторов. Живая разведка
-// 2026-09-30 нашла консистентный виджет на 6+ страницах (главная,
-// culling, editing, cloud-storage, pricing, video): Elementor "Nested
-// Accordion" на нативных <details>/<summary> — .e-n-accordion-item /
-// .e-n-accordion-item-title.
-//
-// Карусели: прежние провалы 2026-09-30 были связаны с тем, что JS Elementor
-// (WP Rocket) стартует только после первого реального действия пользователя,
-// а наши программные клики шли раньше. Перепроверено 2026-10-05: после
-// «разогрева» колесом мыши (pages/pageActivation.ts) карусель, прокрученная во
-// вьюпорт, инициализируется, и кнопка «далее» / буллеты двигают активный слайд.
-// Проверяем именно изменение активного слайда, а не просто факт клика.
+// checklist #36 — сайт пересобран на Astro 2026-10, Elementor больше нет.
+// Разведка 2026-10-27:
+// - FAQ-аккордеон — всё ещё нативные <details>/<summary> (как и раньше),
+//   просто под новыми классами: .faq__row / .faq__q вместо
+//   .e-n-accordion-item / .e-n-accordion-item-title. Найден на / и /pricing/.
+// - Карусели — не swiper, а обычные горизонтально скроллящиеся <ul> со
+//   стрелками "назад"/"вперёд" (data-step="-1"/"1") и CSS scroll-snap.
+//   На главной их две (.hwork__arrow — кейсы использования, .hrev__arrow —
+//   отзывы), у обеих есть aria-controls, указывающий на id скроллящегося
+//   <ul>. На /business/ — своя (.biztest__arrow), но без aria-controls —
+//   контейнер нужно искать рядом по DOM. Проверяем универсально: кликаем
+//   "next" (data-step="1") и смотрим, что scrollLeft контейнера изменился.
 const PAGES_WITH_FAQ = ['/', '/pricing/'];
 const PAGES_WITH_CAROUSEL = ['/', '/business/'];
 
-// Индекс активного слайда. Elementor/Swiper в loop-режиме дублирует слайды,
-// поэтому считаем по всем слайдам как есть: тест сравнивает "до" и "после",
-// а не конкретный номер.
-const activeSlideIndex = (carousel: Locator) =>
-  carousel.evaluate((el) => {
-    const slides = Array.from(el.querySelectorAll('.swiper-slide'));
-    return slides.findIndex((slide) => slide.classList.contains('swiper-slide-active'));
-  });
+// Возвращает scrollLeft контейнера (число, сериализуется нормально) — не
+// сам DOM-элемент, тот из evaluate() в Node не прочитать. Не привязываемся
+// к тегу <ul> — на /business/ скроллится не он сам, а его родительский div
+// (.biztest__row), тогда как на главной скроллится сам <ul> (id="hrev-row").
+// Ищем ЛЮБОЙ элемент с реальным горизонтальным переполнением рядом с кнопкой.
+function scrollLeftOfRow(btn: HTMLElement): number | null {
+  function hasOverflow(el: Element): boolean {
+    return el.scrollWidth - el.clientWidth > 20 && el.clientWidth > 100;
+  }
+  function findRow(el0: HTMLElement): HTMLElement | null {
+    const viaAria = el0.getAttribute('aria-controls');
+    if (viaAria) {
+      const byId = document.getElementById(viaAria);
+      if (byId) return byId;
+    }
+    let el: HTMLElement | null = el0.parentElement;
+    for (let i = 0; i < 4 && el; i++, el = el.parentElement) {
+      if (hasOverflow(el)) return el;
+      const candidate = Array.from(el.querySelectorAll<HTMLElement>('*')).find(hasOverflow);
+      if (candidate) return candidate;
+    }
+    return null;
+  }
+  const row = findRow(btn);
+  return row ? row.scrollLeft : null;
+}
 
 test.describe('Interactive widgets', () => {
   for (const path of PAGES_WITH_FAQ) {
     test(`FAQ accordion on ${path} expands on click`, async ({ page }) => {
       await page.goto(path);
 
-      const item = page.locator('.e-n-accordion-item').first();
+      const item = page.locator('.faq__row').first();
       await expect(item, `No FAQ accordion on ${path}`).toBeVisible();
 
-      const summary = item.locator('.e-n-accordion-item-title');
+      const summary = item.locator('.faq__q');
       await summary.scrollIntoViewIfNeeded();
 
-      // Подтверждено вживую 2026-09-30: первый клик по свежезагруженной
-      // странице иногда не открывает <details> (аккордеон использует
-      // нативный disclosure-виджет браузера) — похоже на задержку
-      // инициализации JS-обработчика Elementor. Повторяем клик, если не
-      // открылось, вместо того чтобы считать это падением с первой попытки.
+      // Нативный <details> — первый клик по свежезагруженной странице иногда
+      // не срабатывает (тот же эффект, что был у старого виджета). Повторяем,
+      // вместо того чтобы считать это падением с первой попытки.
       for (let attempt = 0; attempt < 3; attempt++) {
         const isOpen = await item.evaluate((el) => el.hasAttribute('open'));
         if (isOpen) break;
@@ -58,40 +72,25 @@ test.describe('Carousels', () => {
   for (const path of PAGES_WITH_CAROUSEL) {
     test(`carousel on ${path} moves to another slide`, async ({ page }) => {
       await page.goto(path);
-      await wakeUpPageScripts(page);
+      await page.waitForTimeout(1000);
 
-      const carousels = page.locator('.e-n-carousel.swiper');
-      const total = await carousels.count();
+      const nextButtons = page.locator('button[data-step="1"]:visible');
+      const total = await nextButtons.count();
       expect(total, `No carousel found on ${path}`).toBeGreaterThan(0);
 
       let exercised = 0;
       for (let i = 0; i < total; i++) {
-        const carousel = carousels.nth(i);
-        const widget = carousel.locator('xpath=ancestor::*[contains(@class,"elementor-widget")][1]');
+        const next = nextButtons.nth(i);
+        await next.scrollIntoViewIfNeeded();
 
-        // Часть каруселей лежит в неактивных табах и не видна — проверяем
-        // только те, что реально доступны пользователю. Если ни одна не
-        // видна, тест упадёт ниже, а не пройдёт вхолостую.
-        const next = widget.locator('.elementor-swiper-button-next').first();
-        const bullet = widget.locator('.swiper-pagination-bullet').last();
-        const hasNext = await next.isVisible().catch(() => false);
-        const hasBullets = await bullet.isVisible().catch(() => false);
-        if (!hasNext && !hasBullets) continue;
+        const before = await next.evaluate(scrollLeftOfRow);
+        if (before === null) continue; // не нашли контейнер для этой стрелки — пропускаем, не считаем провалом
 
-        await carousel.scrollIntoViewIfNeeded();
-        await expect(carousel, `Carousel #${i} on ${path} did not initialize`).toHaveClass(/swiper-initialized/);
-
-        const before = await activeSlideIndex(carousel);
-
-        if (hasNext) {
-          await next.click();
-        } else {
-          await bullet.click();
-        }
+        await next.click();
 
         await expect
-          .poll(() => activeSlideIndex(carousel), {
-            message: `Carousel #${i} on ${path} did not change its active slide after ${hasNext ? 'clicking "next"' : 'clicking a bullet'}`,
+          .poll(() => next.evaluate(scrollLeftOfRow), {
+            message: `Carousel #${i} on ${path} did not scroll after clicking "next"`,
             timeout: 5000,
           })
           .not.toBe(before);

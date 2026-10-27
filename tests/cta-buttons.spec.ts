@@ -5,15 +5,16 @@ import urlSweepList from '../data/url-sweep-list.json';
 // остальные страницы пропущены из-за того, что подписи кнопок слишком
 // разные для точного текстового совпадения. Вместо жёстко зашитых
 // текстов проверяем структурно: у каждой ключевой страницы есть хотя бы
-// одна видимая основная CTA-кнопка (Elementor .elementor-button вне
-// header/footer/a11y-тулбара — тот же паттерн, что уже использует
-// HomePage.heroLinkVariant для исключения хедера), и если у кнопки есть
-// реальный href, он не ведёt на 4xx/5xx.
+// одна видимая основная CTA-кнопка (класс .cta вне header/footer/nav/
+// a11y-тулбара) — и если у кнопки есть реальный href, он не ведёт на
+// 4xx/5xx.
 //
-// Собираем кандидатов через page.evaluate (подтверждено вживую
-// 2026-09-30 на всех 10 страницах списка — селектор находит настоящие
-// CTA, а не шум тулбара) — дешевле и надёжнее, чем гонять Playwright-
-// фильтры по XPath-предкам на каждой странице.
+// Сайт пересобран на Astro 2026-10 — класс .cta пришёл на смену
+// .elementor-button (разведка 2026-10-27, подтверждено на нескольких
+// страницах: .cta.cta--header в хедере, .cta.cta--body в основном
+// контенте). Собираем кандидатов через page.evaluate — дешевле и
+// надёжнее, чем гонять Playwright-фильтры по XPath-предкам на каждой
+// странице.
 //
 // /blog/ намеренно исключён — подтверждено вживую: это страница-лента
 // статей без единой "главной" CTA-кнопки (только карточки "Read on Imagen
@@ -38,12 +39,12 @@ test.describe('CTA buttons across key pages', () => {
           const s = getComputedStyle(el);
           return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
         };
-        const excluded = 'header, footer, nav, .pojo-a11y-toolbar';
-        return Array.from(
-          document.querySelectorAll(
-            'a.elementor-button, a.elementor-button-link, button.elementor-button, .elementor-button-wrapper a'
-          )
-        )
+        const excluded = 'header, footer, nav, .a11y__panel';
+        // Большинство страниц используют общий класс .cta, но /business/ —
+        // отдельный мини-сайт со своим неймспейсом (bizhero__cta,
+        // bizwhy__cta и т.п., разведка 2026-10-27) — ловим оба варианта
+        // подстрокой "cta" в классе, а не точным именем.
+        return Array.from(document.querySelectorAll('a[class*="cta" i], button[class*="cta" i]'))
           .filter((el) => isVisible(el) && !el.closest(excluded))
           .map((el) => ({
             text: (el.textContent || '').trim(),

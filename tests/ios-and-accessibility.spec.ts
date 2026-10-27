@@ -26,12 +26,15 @@ test.describe('Mobile touch and autoplay on iPhone (#20)', () => {
       await page.goto(path, { waitUntil: 'load' });
       await page.waitForTimeout(1500);
 
+      // Сайт пересобран на Astro 2026-10 — .elementor-button заменён на .cta
+      // (или *__cta на отдельных мини-сайтах вроде /business/), разведка
+      // 2026-10-27, см. тот же приём в tests/cta-buttons.spec.ts.
       const buttons = await page.evaluate(() =>
-        Array.from(document.querySelectorAll('a.elementor-button, button.elementor-button'))
+        Array.from(document.querySelectorAll('a[class*="cta" i], button[class*="cta" i]'))
           .filter((el) => {
             const r = el.getBoundingClientRect();
             const bg = getComputedStyle(el).backgroundColor;
-            return r.width > 0 && r.height > 0 && bg !== 'rgba(0, 0, 0, 0)' && !el.closest('header, footer, nav, .pojo-a11y-toolbar');
+            return r.width > 0 && r.height > 0 && bg !== 'rgba(0, 0, 0, 0)' && !el.closest('header, footer, nav, .a11y__panel');
           })
           .map((el) => ({
             text: (el.textContent || '').trim().slice(0, 30),
