@@ -142,6 +142,8 @@ jobs:
         GDRIVE_LATEST_JSON_FILE_ID: ${{ secrets.GDRIVE_LATEST_JSON_FILE_ID }}
         GDRIVE_API_KEY: ${{ secrets.GDRIVE_API_KEY }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        # Только чтобы записать в сводку, какой вариант A/B (site_version_site) был закреплён.
+        RAW_CLIENT_COOKIES: ${{ inputs.raw_client_cookies }}
         BROWSERS: ${{ inputs.browsers }}
         SPEC_FILES: ${{ inputs.spec_files }}
         GREP: ${{ inputs.grep }}

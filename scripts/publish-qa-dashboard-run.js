@@ -500,7 +500,7 @@ async function notifySlack(run) {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*${t.passed} passed · ${t.failed} failed · ${t.skipped} skipped* out of ${t.total}${run.trigger && run.trigger.actor ? ` · triggered by ${run.trigger.actor}` : ''}`,
+          text: `*${t.passed} passed · ${t.failed} failed · ${t.skipped} skipped* out of ${t.total}${run.trigger && run.trigger.actor ? ` · triggered by ${run.trigger.actor}` : ''}${run.trigger && run.trigger.siteVariant ? ` · site variant: ${run.trigger.siteVariant}` : ''}`,
         },
       },
       { type: 'section', text: { type: 'mrkdwn', text: catLines } },
@@ -613,6 +613,10 @@ function buildRunSummary(report) {
       specFiles: process.env.SPEC_FILES || null,
       grep: process.env.GREP || null,
       retries: process.env.RETRIES === 'true',
+      // Какой вариант A/B-теста /intelligent-studio/ был закреплён на прогон (cookie
+      // site_version_site) — null значит "случайный, как у обычного посетителя".
+      // Остальные cookies намеренно не сохраняем: сюда может попасть что угодно.
+      siteVariant: ((process.env.RAW_CLIENT_COOKIES || '').match(/(?:^|;\s*)site_version_site=([^;]+)/) || [])[1] || null,
     },
     runNumber: process.env.GITHUB_RUN_NUMBER || null,
     reportUrl: process.env.REPORT_DRIVE_URL || null,

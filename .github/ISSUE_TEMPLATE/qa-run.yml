@@ -37,6 +37,7 @@ body:
         - label: "Functional Gaps"
         - label: "Visual / UX Gaps"
         - label: "Real Estate Webapp"
+        - label: "Intelligent Studio A/B (cookie variants)"
   - type: input
     id: grep
     attributes:

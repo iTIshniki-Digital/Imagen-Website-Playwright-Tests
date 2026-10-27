@@ -79,6 +79,13 @@ const CATEGORIES = {
     name: 'Real Estate Webapp',
     files: ['tests/real-estate.spec.ts'],
   },
+  // Новая категория (2026-10-27), не из исходного ручного чек-листа клиента:
+  // A/B-тест intelligent_studio_1 / _2 на /intelligent-studio/, запрошенный клиентом
+  // после пересборки сайта на Astro.
+  'intelligent-studio': {
+    name: 'Intelligent Studio A/B (cookie variants)',
+    files: ['tests/intelligent-studio.spec.ts'],
+  },
 };
 
 // 'example.spec.ts' — заготовка Playwright, не часть чек-листа, пропускаем.

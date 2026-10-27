@@ -22,6 +22,10 @@
   --warn:#9C6B16; --warn-tint:#FBF1DE; --warn-line:#E9D5A3;
   --skip:#716D66; --skip-tint:#EDEBE5; --skip-line:#D9D5CC;
   --shadow: 0 1px 2px rgba(23,34,31,.06), 0 6px 20px -8px rgba(23,34,31,.12);
+  /* Фидбэк клиента 2026-10-27: дашборд должен выглядеть как десктоп от 1600px и
+     дальше сразу мобильный — раньше колонка была 1180px и на большом мониторе
+     смотрелась как планшетная версия. */
+  --page-max: 1600px;
   color-scheme: light;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -55,7 +59,7 @@ button{font-family:inherit;}
 .topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
   background:color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);}
-.topbar-inner{max-width:1180px; margin:0 auto; padding:14px 20px 0;
+.topbar-inner{max-width:var(--page-max); margin:0 auto; padding:14px 20px 0;
   display:flex; flex-wrap:wrap; align-items:center; gap:14px;}
 .brand{display:flex; align-items:baseline; gap:8px; margin-right:auto;}
 .brand h1{font-size:17px; margin:0; font-weight:650; letter-spacing:-.01em;}
@@ -82,13 +86,13 @@ button{font-family:inherit;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @media (prefers-reduced-motion: reduce){ .spinner{animation:none;} }
 
-.tabs{display:flex; gap:2px; max-width:1180px; margin:10px auto 0; padding:0 20px; overflow-x:auto;}
+.tabs{display:flex; gap:2px; max-width:var(--page-max); margin:10px auto 0; padding:0 20px; overflow-x:auto;}
 .tab{border:none; background:transparent; color:var(--muted); font-size:13.5px; font-weight:560;
   padding:9px 14px; border-radius:8px 8px 0 0; cursor:pointer; position:relative; white-space:nowrap;}
 .tab[aria-selected="true"]{color:var(--accent-ink); background:var(--surface); box-shadow: inset 0 -2px 0 var(--accent);}
 .tab:hover:not([aria-selected="true"]){color:var(--ink); background:var(--surface-2);}
 
-main{max-width:1180px; margin:0 auto; padding:22px 20px 60px; display:flex; flex-direction:column; gap:18px;}
+main{max-width:var(--page-max); margin:0 auto; padding:22px 20px 60px; display:flex; flex-direction:column; gap:18px;}
 .panel{display:flex; flex-direction:column; gap:16px;}
 .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; box-shadow:var(--shadow);}
 .card h2{font-size:14.5px; margin:0 0 2px; font-weight:650;}
@@ -103,7 +107,7 @@ main{max-width:1180px; margin:0 auto; padding:22px 20px 60px; display:flex; flex
 .empty p{margin:0; color:var(--muted); max-width:46ch; font-size:13.5px;}
 
 .field-group{display:flex; flex-direction:column; gap:8px;}
-.lbl-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+.lbl-row{display:flex; align-items:center; gap:14px;}
 .lbl-row .lbl{margin-bottom:0;}
 .link-btn{border:none; background:none; color:var(--accent-ink); font-size:12px; font-weight:600;
   cursor:pointer; padding:2px 0;}
@@ -213,7 +217,30 @@ tr:last-child td{border-bottom:none;}
 .bug .shot img{width:120px; height:76px;}
 
 .settings-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
-@media (max-width:700px){ .settings-grid{grid-template-columns:1fr;} }
+
+/* Широкий десктоп: категории "What to check" — в две колонки, чтобы форма не
+   растягивалась на два экрана вниз; карточки багов — сеткой. */
+@media (min-width:1200px){
+  .cat-stack{display:grid; grid-template-columns:1fr 1fr; align-items:start;}
+  .bug-grid{display:grid; grid-template-columns:1fr 1fr; align-items:start;}
+}
+
+/* Мобильный: всё в одну колонку, меньше отступов, действия бага — под текстом. */
+@media (max-width:700px){
+  .settings-grid{grid-template-columns:1fr;}
+  .topbar-inner{padding:12px 16px 0;}
+  .tabs{padding:0 16px;}
+  main{padding:16px 16px 48px; gap:14px;}
+  footer.note{padding:0 16px;}
+  .card{padding:14px 16px;}
+  .bug{flex-direction:column;}
+  .bug-actions{flex-direction:row; flex-wrap:wrap; align-items:center;}
+  .bug .shot img, .shot img{width:100%; height:auto; max-height:200px;}
+  .brand{flex-direction:column; align-items:flex-start; gap:0;}
+  .totals-pill{order:3; width:100%; justify-content:center;}
+  .bug-tabs{flex-wrap:wrap;}
+  .bugs-toolbar{width:100%;}
+}
 
 .lightbox{position:fixed; inset:0; background:rgba(10,14,13,.82); display:flex; align-items:center; justify-content:center;
   padding:28px; z-index:50;}
@@ -221,7 +248,7 @@ tr:last-child td{border-bottom:none;}
 .lightbox-close{position:absolute; top:18px; right:22px; background:var(--surface); border:1px solid var(--line); color:var(--ink);
   border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer;}
 
-footer.note{max-width:1180px; margin:0 auto 40px; padding:0 20px; font-size:11.5px; color:var(--faint);}
+footer.note{max-width:var(--page-max); margin:0 auto 40px; padding:0 20px; font-size:11.5px; color:var(--faint);}
 
 /* --------------------------------------------------- sign-in gate */
 .gate{min-height:100svh; display:flex; align-items:center; justify-content:center; padding:24px;}
@@ -293,6 +320,16 @@ footer.note{max-width:1180px; margin:0 auto 40px; padding:0 20px; font-size:11.5
           <div id="fileLimitMsg" class="limit-warn" hidden></div>
         </div>
 
+        <div class="field-group" style="margin-top:14px;">
+          <label class="lbl">Site variant (A/B test)</label>
+          <div class="chip-row" id="variantChips">
+            <label class="chip"><input type="radio" name="rtVariant" value="" checked><span>Random, like a real visitor</span></label>
+            <label class="chip"><input type="radio" name="rtVariant" value="intelligent_studio_1"><span>Intelligent Studio v1</span></label>
+            <label class="chip"><input type="radio" name="rtVariant" value="intelligent_studio_2"><span>Intelligent Studio v2</span></label>
+          </div>
+          <small class="note">Pins the whole run to one version of the /intelligent-studio/ A/B test (sets the site_version_site cookie). The &ldquo;Intelligent Studio A/B&rdquo; category always checks both versions on its own.</small>
+        </div>
+
         <details class="adv" style="margin-top:14px;">
           <summary>Advanced settings</summary>
           <div class="adv-body">
@@ -345,7 +382,7 @@ footer.note{max-width:1180px; margin:0 auto 40px; padding:0 20px; font-size:11.5
     <div class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
         <h2 style="margin:0;">Bugs</h2>
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="bugs-toolbar" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <div class="bug-tabs" role="tablist">
             <button class="bug-tab" data-bugfilter="open" aria-selected="true">Open</button>
             <button class="bug-tab" data-bugfilter="closed" aria-selected="false">Fixed</button>

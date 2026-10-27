@@ -106,6 +106,10 @@ function imagen_qa_scopes() {
             'label' => 'Real Estate Webapp',
             'files' => ['tests/real-estate.spec.ts'],
         ],
+        'intelligent-studio' => [
+            'label' => 'Intelligent Studio A/B (cookie variants)',
+            'files' => ['tests/intelligent-studio.spec.ts'],
+        ],
     ];
 }
 

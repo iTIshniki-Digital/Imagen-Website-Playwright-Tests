@@ -52,8 +52,9 @@
       "Video download page shows the confirmation screen",
     ]],
     ["mobile", "Mobile (real phone or emulation)", ["tests/mobile-funnel.spec.ts"], [
-      "Mobile onboarding (~12 screens) completes with name + email",
-      "Mobile download step redirects correctly after email",
+      "Hero \u201cGet started\u201d opens the mobile onboarding in one tap",
+      "Mobile onboarding (~13 screens) completes with name + email",
+      "Ends on \u201cCheck your email on desktop\u201d \u2014 no app download on the phone",
     ]],
     ["ios", "iOS / Apple Devices", ["tests/ios-and-accessibility.spec.ts"], [
       "Tap targets are at least 24px",
@@ -85,6 +86,13 @@
     ]],
     ["real-estate", "Real Estate Webapp", ["tests/real-estate.spec.ts"], [
       "Real estate trial button redirects into the signup flow",
+    ]],
+    ["intelligent-studio", "Intelligent Studio A/B (cookie variants)", ["tests/intelligent-studio.spec.ts"], [
+      "Both variants (intelligent_studio_1 / _2) are applied from the cookie",
+      "Each variant shows its own layout (v1: centered hero + showcase; v2: split hero + header button)",
+      "“I want in” leads to the waitlist email field in both variants",
+      "Waitlist form accepts an email and confirms",
+      "?site_version= QA override switches the variant",
     ]],
   ];
   function categoryName(slug){ var c = CATEGORIES.filter(function(x){return x[0]===slug;})[0]; return c ? c[1] : (slug || "Other"); }
@@ -327,6 +335,14 @@
     if (grep && !GREP_RE.test(grep)){ setBanner(banner, "err", "The name filter has invalid characters. Allowed: Latin letters, digits, spaces and _ . , : ( ) / | -."); return; }
     var cookies = document.getElementById("rtCookies").value.trim();
     if (cookies && (cookies.length > 2000 || /[\r\n]/.test(cookies) || cookies.indexOf("=") === -1)){ setBanner(banner, "err", "Cookies are invalid. Use a string like name1=value1; name2=value2, on one line."); return; }
+    // Переключатель "Site variant": это просто cookie site_version_site, которую
+    // сайт читает, чтобы решить, какую версию /intelligent-studio/ показать.
+    // Если её уже вписали руками в Advanced — ручное значение главнее.
+    var variantInput = document.querySelector('input[name="rtVariant"]:checked');
+    var variant = variantInput ? variantInput.value : "";
+    if (variant && !/(^|;\s*)site_version_site=/.test(cookies)){
+      cookies = "site_version_site=" + variant + (cookies ? "; " + cookies : "");
+    }
     var retries = document.getElementById("rtRetries").checked;
 
     var btn = document.getElementById("runSubmitBtn");
@@ -446,7 +462,7 @@
     }
     empty.hidden = true;
     var t = run.trigger || {};
-    meta.textContent = run.runId + (t.actor ? " · " + t.actor : "") + " · " + fmtDateTime(run.finishedAt);
+    meta.textContent = run.runId + (t.actor ? " · " + t.actor : "") + (t.siteVariant ? " · site variant: " + t.siteVariant : "") + " · " + fmtDateTime(run.finishedAt);
     var cats = run.categories || {};
     var slugs = Object.keys(cats).sort(function(a,b){
       var ia = CATEGORIES.findIndex(function(c){ return c[0]===a; }); if (ia === -1) ia = 999;
