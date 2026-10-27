@@ -19,3 +19,7 @@ node_modules/
 # OS / editor noise
 .DS_Store
 .claude/
+
+# Per-machine VS Code settings — this one ties the Claude Code extension to a
+# specific local account config dir, not something to share via git.
+.vscode/
