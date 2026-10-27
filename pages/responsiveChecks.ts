@@ -46,9 +46,17 @@ export async function checkResponsiveHealth(page: Page): Promise<ResponsiveHealt
     clientWidth: document.documentElement.clientWidth,
   }));
 
+  // НАЙДЕНО 2026-10-27 (Astro-пересборка): часть картинок (например, в
+  // горизонтальных каруселях вроде .hrev__photo) используют собственный
+  // лейзи-лоад сайта — атрибута src у них нет вообще, реальный путь лежит
+  // в data-src, src подставится своим JS, когда карусель докрутится до
+  // картинки. Вертикальный скролл страницы это не триггерит. Без src
+  // naturalWidth==0 у них всегда — исключаем такие картинки как "ещё не
+  // загруженные", а не "битые": настоящая битая картинка имеет src, который
+  // не загрузился.
   const brokenImages = (
     await page.$$eval('img', (images) =>
-      images.filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.src)
+      images.filter((img) => img.complete && img.naturalWidth === 0 && img.getAttribute('src')).map((img) => img.src)
     )
   ).filter((src) => !isThirdPartyNoise(src));
 
