@@ -1,9 +1,9 @@
 import { test, expect } from './fixtures';
 
-// checklist #30 (Podcast) — шаблон эпизода подкаста. Подтверждено вживую
-// 2026-10-05: эпизоды лежат по /podcast/<id>/ и рендерятся тем же
-// Elementor-шаблоном, что статьи блога (h1 + .elementor-widget-theme-post-content),
-// поэтому проверка повторяет логику tests/content-templates.spec.ts.
+// checklist #30 (Podcast) — шаблон эпизода подкаста. Сайт пересобран на
+// Astro 2026-10 — эпизоды по-прежнему лежат по /podcast/<id>/, но теперь
+// это отдельный шаблон от статей блога (ephead__title + .epnotes, не
+// .post__main, как у tests/content-templates.spec.ts — разведка 2026-10-27).
 test('a podcast episode renders with a title and body content', async ({ page }) => {
   await page.goto('/podcast/');
 
@@ -21,6 +21,6 @@ test('a podcast episode renders with a title and body content', async ({ page })
   await expect(heading, 'No h1 heading on the episode page').toBeVisible();
   await expect(heading).not.toBeEmpty();
 
-  const bodyText = await page.locator('.elementor-widget-theme-post-content').first().innerText();
+  const bodyText = await page.locator('.epnotes').first().innerText();
   expect(bodyText.trim().length, 'Episode description looks empty').toBeGreaterThan(200);
 });

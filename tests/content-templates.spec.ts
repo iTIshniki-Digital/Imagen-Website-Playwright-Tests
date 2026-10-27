@@ -17,8 +17,8 @@ test('a blog article renders with a title and body content', async ({ page }) =>
   await expect(heading, 'No h1 heading on the article page').toBeVisible();
   await expect(heading).not.toBeEmpty();
 
-  // Elementor-тема не использует семантические <article>/<main> — контент
-  // статьи рендерится в виджете с этим классом (проверено вживую).
-  const bodyText = await page.locator('.elementor-widget-theme-post-content').first().innerText();
+  // Сайт пересобран на Astro 2026-10 — текст статьи теперь в .post__main
+  // (разведка 2026-10-27, URL-схема /post/<slug>/ не изменилась).
+  const bodyText = await page.locator('.post__main').first().innerText();
   expect(bodyText.trim().length, 'Article body looks empty').toBeGreaterThan(200);
 });

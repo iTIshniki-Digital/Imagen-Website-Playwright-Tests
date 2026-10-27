@@ -3,21 +3,18 @@ import { test, expect } from './fixtures';
 import urlSweepList from '../data/url-sweep-list.json';
 
 // checklist #37 — поведение при прокрутке. Прокрутка здесь настоящая
-// (колесо мыши), а не программная: JS части сайта (WP Rocket) стартует
-// только после первого реального действия пользователя, см. комментарий в
-// interactive-widgets.spec.ts.
+// (колесо мыши), не программная.
 //
-// Разведка 2026-10-05:
-// - sticky-шапки на сайте нет: при прокрутке на 2000px хедер уезжает вверх
-//   (это подтверждено, пункт остаётся «не делали» по sticky по смыслу ТЗ);
-// - Elementor-анимации появления не скрывают контент навсегда: после
-//   прокрутки до конца и обратно не остаётся видимого текста с opacity ≈ 0.
-//   Исключения: неактивные слайды каруселей и закрытые <details> прозрачны
-//   по задумке, их не считаем.
-// - НАЙДЕНО: верхняя промо-полоса (.sale-banner, «Something big has arrived /
-//   $10») при прокрутке вниз уезжает за верх экрана и становится прозрачной.
-//   При возврате наверх остаётся на top: -141px, opacity: 0, и возвращается
-//   только после перезагрузки. Это дефект сайта — тест красный.
+// Сайт пересобран на Astro 2026-10 (разведка 2026-10-27):
+// - sticky-шапки по-прежнему нет — прокрутка уводит хедер вверх, это
+//   подтверждено и остаётся «не делали» по смыслу ТЗ.
+// - ПРЕЖНИЙ дефект "верхняя промо-полоса .sale-banner остаётся прозрачной
+//   после прокрутки вверх" — больше не актуален: самого элемента
+//   .sale-banner на сайте больше нет (клиент убрал полосу при пересборке,
+//   вместо неё маленький бейдж в хедере .hdr__badge, который просто
+//   уезжает с хедером, никакого отдельного состояния не хранит). Второй
+//   тест файла (про .sale-banner) удалён как проверяющий несуществующий
+//   элемент, а не потому что сайт «починили» в старом смысле.
 
 const KEY_PAGES = ['/', ...urlSweepList.urlsToCheck.map((p) => p.path)];
 
@@ -37,11 +34,10 @@ async function wheelScroll(page: Page, direction: 'down' | 'up'): Promise<void> 
 }
 
 // Элементы с текстом или картинки, которые должны быть видны, но стоят с
-// эффективной прозрачностью ≈ 0. Скрытое по задумке (неактивные слайды,
-// закрытые аккордеоны, фоновые слайд-шоу, a11y-тулбар, промо-полоса, которую
-// проверяем отдельно) не учитываем.
+// эффективной прозрачностью ≈ 0. Скрытое по задумке (неактивные карусельные
+// слайды вне видимой области, закрытые аккордеоны, a11y-панель) не учитываем.
 const INVISIBLE_CONTENT = `(() => {
-  const excluded = '.swiper-slide:not(.swiper-slide-active), details:not([open]), [aria-hidden="true"], .elementor-background-slideshow, .pojo-a11y-toolbar, .elementor-lightbox, [hidden], .sale-banner';
+  const excluded = 'details:not([open]), [aria-hidden="true"], .a11y__panel, [hidden]';
   const stuck = [];
   for (const el of document.querySelectorAll('h1,h2,h3,h4,p,a,span,li,img')) {
     if (el.closest(excluded)) continue;
@@ -72,29 +68,4 @@ test.describe('Scroll behavior (#37)', () => {
       expect(stuck, `Invisible content remains on ${path} after scrolling to the end and back`).toEqual([]);
     });
   }
-
-  test('the top promo banner is visible again after scrolling back to the top of /', async ({ page }) => {
-    test.setTimeout(120000);
-    await page.goto('/');
-    await page.waitForTimeout(1500);
-
-    const readBanner = () =>
-      page.evaluate(() => {
-        const banner = document.querySelector('.sale-banner');
-        if (!banner) return null;
-        const rect = banner.getBoundingClientRect();
-        return { top: Math.round(rect.top), opacity: Number(getComputedStyle(banner).opacity) };
-      });
-
-    const atLoad = await readBanner();
-    expect(atLoad, 'The .sale-banner promo banner was not found on the homepage').not.toBeNull();
-    expect(atLoad!.top, 'The promo banner should be visible right after load').toBeGreaterThanOrEqual(0);
-
-    await wheelScroll(page, 'down');
-    await wheelScroll(page, 'up');
-
-    const afterReturn = await readBanner();
-    expect(afterReturn!.top, `After scrolling back to the top, the promo banner is at top=${afterReturn!.top}px but should be on screen`).toBeGreaterThanOrEqual(0);
-    expect(afterReturn!.opacity, 'The promo banner is transparent after scrolling back to the top').toBeGreaterThan(0.9);
-  });
 });
