@@ -10,22 +10,20 @@ import localesData from '../data/locales-data.json';
 //
 // Текст для проверки — только то, что уже проверено как стабильный локатор
 // в tests/localization.spec.ts (title) и tests/localized-funnel.spec.ts
-// (hero CTA без href, по структуре, не по тексту — переживает A/B и верстку).
-// Намеренно не добавляем новых селекторов ради этого теста — если позже
-// понадобится больше текста, лучше взять его из уже проверенных мест.
+// (hero-форма .signup__submit — та же на всех локалях, разведка 2026-10-27,
+// см. HomePage.ts). Намеренно не добавляем новых селекторов ради этого
+// теста — если позже понадобится больше текста, лучше взять его из уже
+// проверенных мест.
 //
 // Один запрос на локаль (не на фразу) — дешевле и быстрее, см.
 // scripts/README-qa-dashboard.md. Требует ANTHROPIC_API_KEY — без него тест
 // аккуратно пропускается (skip), не падает, чтобы не ломать прогон тем, у
 // кого ключа нет (например, локальная разработка).
 
-const HERO_CTA = 'xpath=//a[contains(@class,"elementor-button") and not(@href) and not(ancestor::header)]';
-
 async function readSnippets(page: import('@playwright/test').Page) {
   const title = await page.title();
   const cta = await page
-    .locator(HERO_CTA)
-    .filter({ hasText: /\S/ })
+    .locator('form.signup__form button.signup__submit')
     .first()
     .innerText()
     .catch(() => '');
