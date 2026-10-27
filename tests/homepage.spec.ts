@@ -23,20 +23,16 @@ test.describe('Homepage', () => {
     expect(issues.failedRequests, `Failed requests:\n${issues.failedRequests.join('\n')}`).toEqual([]);
   });
 
-  test('hero CTA redirects to /step-2/ (handles both A/B variants)', async ({ page }, testInfo) => {
+  test('hero CTA redirects to /step-2/ with the email prefilled', async ({ page }) => {
     const homePage = new HomePage(page);
     await homePage.goto();
 
-    const variant = await homePage.continueToStepTwo();
-    testInfo.annotations.push({ type: 'hero-variant', description: variant });
+    await homePage.continueToStepTwo();
 
-    await expect(page).toHaveURL(/\/step-2\/?$/);
-
-    // Prefill email работает только у form-варианта — у link-варианта
-    // email на шаге 2 ещё не задан, там его вводят с нуля.
-    if (variant === 'form') {
-      await expect(page.locator('input[type="email"], input[name*="email" i]').first()).toHaveValue(TEST_EMAIL);
-    }
+    // Новый сайт добавляет свои query-параметры к /step-2/ (submit_url=,
+    // email=) — проверяем путь, а не точное совпадение URL целиком.
+    await expect(page).toHaveURL(/\/step-2\//);
+    await expect(page.locator('#s2-email')).toHaveValue(TEST_EMAIL);
   });
 
   test('nav "Get Started" redirects to /step-2/', async ({ page }) => {
@@ -45,6 +41,6 @@ test.describe('Homepage', () => {
 
     await homePage.clickNavGetStarted();
 
-    await expect(page).toHaveURL(/\/step-2\/?$/);
+    await expect(page).toHaveURL(/\/step-2\//);
   });
 });
