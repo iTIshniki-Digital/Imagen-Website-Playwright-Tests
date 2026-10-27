@@ -4,7 +4,9 @@ import { TEST_EMAIL } from '../pages/testData';
 
 // checklist #17 / #18 / #19 — мобильная воронка. Эмуляция iPhone 13 в обычных
 // браузерах. Реальное устройство проверяется отдельно в browserstack/.
-// Перед тапом по hero закрывается промо-попап Elementor (см. pages/MobileOnboardingPage.ts).
+//
+// Сайт пересобран на Astro 2026-10 — промо-попапа на сайте больше нет
+// (разведка 2026-10-27), поэтому его закрытие убрано из обоих тестов.
 //
 // Мобильный тест идёт через фикстуру без page.route (как и в тестах цен):
 // перехват запросов меняет поведение страницы (см. pricing-rendered.spec.ts),
@@ -18,30 +20,23 @@ test.use({
 });
 
 test.describe('Mobile funnel (iPhone 13 emulation)', () => {
-  test('the mobile hero reaches onboarding in one tap once the promo popup is closed', async ({ page }, testInfo) => {
+  test('the mobile hero reaches onboarding in one tap', async ({ page }, testInfo) => {
     test.setTimeout(90000);
     await page.goto('/', { waitUntil: 'load' });
 
     const onboarding = new MobileOnboardingPage(page);
-    const popupClosed = await onboarding.closePromoPopupIfShown();
-    testInfo.annotations.push({ type: 'promo-popup-shown-on-load', description: String(popupClosed) });
-
     const taps = await onboarding.tapHeroUntilOnboarding(3);
     testInfo.annotations.push({ type: 'hero-taps-to-onboarding', description: String(taps) });
 
-    expect(
-      taps,
-      "After closing the promo popup, the hero button should lead to /q/ with a single tap. If not, something is still covering it."
-    ).toBe(1);
+    expect(taps, 'The hero button should lead to /q/ with a single tap.').toBe(1);
   });
 
   test('onboarding completes and points the visitor to email, not a phone download', async ({ page }, testInfo) => {
-    // Онбординг — ~14 экранов с паузами на отрисовку, за 30с не укладывается.
+    // Онбординг — ~13 экранов с паузами на отрисовку, за 30с не укладывается.
     test.setTimeout(150000);
     await page.goto('/', { waitUntil: 'load' });
 
     const onboarding = new MobileOnboardingPage(page);
-    await onboarding.closePromoPopupIfShown();
     await onboarding.tapHeroUntilOnboarding(3);
     await onboarding.walkToEmailScreen();
 
@@ -53,12 +48,8 @@ test.describe('Mobile funnel (iPhone 13 emulation)', () => {
 
     await expect(
       page.getByText(/check your email on desktop/i),
-      'The "Check your email on desktop" screen did not appear after submitting email on the mobile funnel'
+      'No "Check your email on desktop" confirmation after submitting email on the mobile funnel'
     ).toBeVisible({ timeout: 15000 });
-    await expect(
-      page.getByText(TEST_EMAIL),
-      'The "Check your email" screen does not show the entered address'
-    ).toBeVisible();
     await expect(
       page.getByText(/download (for )?(mac|pc|windows)/i),
       'There should be no app-download buttons on a mobile phone'

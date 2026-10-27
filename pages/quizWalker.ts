@@ -1,10 +1,12 @@
 import { Page } from '@playwright/test';
 
 // Общая механика квиз-виджетов сайта (Astro, разведка 2026-10-27) —
-// /photo-quiz/, /questionnaire/ и /video/questionnaire-2/ устроены
-// одинаково, просто под разными классами контейнера экрана:
+// /photo-quiz/, /questionnaire/, /video/questionnaire-2/ и мобильный /q/
+// устроены одинаково, просто под разными классами контейнера экрана:
 //   - .pq__screen — /photo-quiz/, /questionnaire/
 //   - .vq__screen — /video/questionnaire-2/
+//   - .mq-screen — /q/ (мобильный онбординг, дефис, а не двойное
+//     подчёркивание, как у остальных двух — проверено вживую)
 // В каждом случае: один <section data-step> виден, у остальных атрибут
 // hidden; экран-вопрос — fieldset[data-question] с input[type=radio]
 // или type=checkbox ("Select all that apply" — хватает отметить один
@@ -12,7 +14,7 @@ import { Page } from '@playwright/test';
 // [data-quiz-next], задизейблена через aria-disabled="true" до ответа.
 // Экраны без вопроса (чисто маркетинговые интерстишлы, авто-переходящие
 // intro/congrats) просто не содержат fieldset[data-question].
-const SCREEN_SELECTOR = '.pq__screen:not([hidden]), .vq__screen:not([hidden])';
+const SCREEN_SELECTOR = '.pq__screen:not([hidden]), .vq__screen:not([hidden]), .mq-screen:not([hidden])';
 
 export type QuizStepResult = 'answered' | 'advanced' | 'waiting' | 'no-screen';
 
