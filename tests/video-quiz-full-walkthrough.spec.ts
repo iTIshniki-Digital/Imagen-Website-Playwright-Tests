@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 import { VideoPage } from '../pages/VideoPage';
-import { VideoStepTwoPage } from '../pages/VideoStepTwoPage';
+import { StepTwoPage } from '../pages/StepTwoPage';
 import { QuestionnairePage } from '../pages/QuestionnairePage';
 import { TEST_EMAIL } from '../pages/testData';
 
@@ -9,31 +9,25 @@ import { TEST_EMAIL } from '../pages/testData';
 // quiz-full-walkthrough.spec.ts: полный проход через все шаги формы
 // занимает заметно дольше, чем должен занимать быстрый прогон.
 //
-// Подтверждено вживую 2026-09-30: отправка /video/step-2/ ведёт на
-// /video/questionnaire-2/ — тот же виджет Elementor "Form Steps", что и
-// на /questionnaire/ основной воронки (10 шагов вместо 12, но идентичная
-// структура полей) — переиспользуем QuestionnairePage, не пишем новый
-// класс под, по сути, тот же виджет.
+// Сайт пересобран на Astro 2026-10 (разведка 2026-10-27): /video/step-2/ —
+// тот же компонент StepTwoPage, что у основной воронки (data-product=
+// "video"), а итоговый адрес анкеты — /video/questionnaire/ (без "-2" на
+// конце, раньше было /video/questionnaire-2/). Сама анкета — тот же
+// .vq__screen-виджет, что на /questionnaire/ (см. QuestionnairePage/
+// quizWalker.ts) — переиспользуем, не пишем новый класс.
 test.describe('Video quiz full walkthrough', () => {
-  test('video funnel reaches the end of the questionnaire-2 form and the download page', async ({ page }) => {
+  test('video funnel reaches the end of the questionnaire and the download page', async ({ page }) => {
     test.setTimeout(3 * 60 * 1000);
 
     const videoPage = new VideoPage(page);
-    const videoStepTwoPage = new VideoStepTwoPage(page);
+    const stepTwoPage = new StepTwoPage(page);
 
     await videoPage.goto();
     await videoPage.submitEmail();
     await expect(page).toHaveURL(/\/video\/step-2\/?/);
 
-    // Тот же паттерн, что у основного step-2 (pages/StepTwoPage.ts):
-    // приход на страницу клиентской навигацией (не полной перезагрузкой)
-    // рискует оставить обработчик submit непривязанным. Дёшево и
-    // безопасно подстраховаться здесь тем же способом, ничего ещё не
-    // введено и терять нечего.
-    await page.reload();
-
-    await videoStepTwoPage.fillAndSubmit('Playwright', 'QA', TEST_EMAIL);
-    await page.waitForURL(/\/video\/questionnaire-2\//, { timeout: 15000 });
+    await stepTwoPage.fillAndSubmit('Playwright', 'QA', TEST_EMAIL);
+    await page.waitForURL(/\/video\/questionnaire\//, { timeout: 15000 });
 
     const questionnairePage = new QuestionnairePage(page);
     const answeredCount = await questionnairePage.answerAllSteps();

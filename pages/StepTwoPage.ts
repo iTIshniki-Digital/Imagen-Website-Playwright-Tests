@@ -9,6 +9,11 @@ import { TEST_EMAIL } from './testData';
 // не нужен, но не мешает оставить ради устойчивости к мелким правкам
 // стилей. terms-чекбокс теперь ПО УМОЛЧАНИЮ отмечен (разведка 2026-10-27).
 //
+// Тот же компонент используется и на /video/step-2/ (data-product="video"
+// вместо "photo"), но там НЕТ поля #s2-heard ("How did you hear about
+// us?") — форма короче (разведка 2026-10-27). fillAndSubmit() поэтому
+// трогает select, только если он реально есть на экране.
+//
 // НАЙДЕНО 2026-10-27 — причина флейкового "форма ушла обычным GET со
 // всеми полями в query string вместо редиректа на квиз": в
 // /_astro/form-guard.*.js есть осознанная анти-бот защита с порогом
@@ -47,7 +52,9 @@ export class StepTwoPage extends BasePage {
     // Заполняем email явно, а не полагаемся только на prefill — так тест
     // не зависит от того, пришли ли сюда через hero-форму или напрямую.
     await this.emailInput.fill(email);
-    await this.hearAboutUsSelect.selectOption({ label: 'Other' }, { force: true });
+    if (await this.hearAboutUsSelect.count()) {
+      await this.hearAboutUsSelect.selectOption({ label: 'Other' }, { force: true });
+    }
     await this.termsCheckbox.check({ force: true });
 
     // См. комментарий класса — анти-бот гвард требует >= 2с с инициализации
