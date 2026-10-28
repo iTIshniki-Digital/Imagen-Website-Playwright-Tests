@@ -318,7 +318,7 @@ function loadBugIssues() {
 function syncGithubIssues(run) {
   ensureLabel(BUG_LABEL, 'd73a4a', 'Auto-filed by the QA pipeline from a failing check');
   ensureLabel('qa-run', '0e8a16', 'Opened by the QA dashboard to request a test run');
-  ensureLabel(IGNORE_LABEL, '6a737d', 'Not a real bug — the pipeline stops recreating/reopening it. Remove this label to start tracking it again.');
+  ensureLabel(IGNORE_LABEL, '6a737d', 'Not a real bug — the QA pipeline will not reopen it. Remove to track again.');
 
   const passedKeys = new Set();
   Object.values(run.categories).forEach((cat) => {
@@ -554,7 +554,10 @@ function buildRunSummary(report) {
       if (!last) continue;
 
       const ok = last.status === (test.expectedStatus || 'passed');
-      const status = ok ? 'passed' : last.status === 'skipped' ? 'skipped' : 'failed';
+      // skipped проверяем первым: у test.skip() expectedStatus тоже 'skipped',
+      // и раньше такой тест попадал в passed (дашборд/Slack показывали
+      // 170 passed / 0 skipped, когда Playwright — 169 / 1, 2026-10-28).
+      const status = last.status === 'skipped' ? 'skipped' : ok ? 'passed' : 'failed';
       const expectedFail = ok && (test.expectedStatus === 'failed' || test.expectedStatus === 'timedOut');
 
       const key = `${slug}::${spec.titlePath ? spec.titlePath.join(' > ') : spec.title}`;

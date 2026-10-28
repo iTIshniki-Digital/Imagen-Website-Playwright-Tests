@@ -17,7 +17,10 @@ jobs:
     # github.event.issue.pull_request существует только когда "issue" на
     # самом деле PR (GitHub шлёт PR-события тоже через issues API) — такие
     # пропускаем, это не наш случай.
-    if: ${{ !github.event.issue.pull_request }}
+    # Плюс: только issues из формы QA-прогона (в теле есть "### Browsers") —
+    # иначе на каждый автоматически заведённый qa-bug поднималась машина
+    # впустую (6 лишних запусков в Actions за один прогон, 2026-10-28).
+    if: ${{ !github.event.issue.pull_request && contains(github.event.issue.body, '### Browsers') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

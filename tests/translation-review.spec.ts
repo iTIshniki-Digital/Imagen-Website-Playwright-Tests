@@ -30,18 +30,33 @@ async function readSnippets(page: import('@playwright/test').Page) {
   return { title: title.trim(), cta: cta.trim() };
 }
 
+// Слаги локалей на сайте — не ISO-коды языков: /br/ — бразильский
+// португальский (а ISO "br" — бретонский), /kr/ — корейский (ISO "ko").
+// Передавать модели голый код нельзя — 2026-10-28 она признала /br/
+// "не тем языком" именно из-за этого.
+const LANGUAGE_NAMES: Record<string, string> = {
+  br: 'Portuguese (Brazil)',
+  es: 'Spanish',
+  kr: 'Korean',
+  fr: 'French',
+  de: 'German',
+  ja: 'Japanese',
+  it: 'Italian',
+};
+
 async function askClaude(localeCode: string, pairs: { label: string; en: string; translated: string }[]) {
+  const language = LANGUAGE_NAMES[localeCode] ?? localeCode;
   const prompt =
-    `You're reviewing this website's translations into the language with code "${localeCode}". For each pair ` +
+    `You're reviewing this website's translations into ${language}. For each pair ` +
     `(English original → translation), say whether the translation conveys the same meaning and ` +
-    `whether it's actually written in the "${localeCode}" language (not accidentally left in ` +
+    `whether it's actually written in ${language} (not accidentally left in ` +
     `English, and not an untranslated placeholder or garbage text). ` +
     `Do NOT nitpick style, choice of synonyms, minor cultural adaptations, or the fact that ` +
     `a [page title] is shorter in another language than in English — page titles are often ` +
     `deliberately shortened in other languages for SEO; that's normal practice, not an error. ` +
     `Only flag as an error: an actual loss of meaning (not length), untranslated ` +
     `(still-English) text, or nonsense/garbage/a placeholder.\n\n` +
-    pairs.map((p, i) => `${i + 1}. [${p.label}] EN: "${p.en}" → ${localeCode}: "${p.translated}"`).join('\n') +
+    pairs.map((p, i) => `${i + 1}. [${p.label}] EN: "${p.en}" → ${language}: "${p.translated}"`).join('\n') +
     `\n\nReply with STRICTLY a JSON array of the same length, no surrounding text and no markdown formatting:\n` +
     `[{"ok": true|false, "reason": "brief, in English, only if ok:false, otherwise an empty string"}, ...]`;
 
