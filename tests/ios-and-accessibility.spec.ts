@@ -113,6 +113,14 @@ test.describe('Keyboard and screen-reader basics (#20)', () => {
         for (const a of Array.from(document.querySelectorAll('a[href]'))) {
           const r = a.getBoundingClientRect();
           if (r.width === 0 || r.height === 0) continue;
+          // По согласованию с клиентом (2026-10-28) не считаем:
+          // - ссылки, которые браузер не отрисовывает (checkVisibility() =
+          //   false) — например, внутри свёрнутого FAQ-аккордеона: у них
+          //   ненулевой прямоугольник, но текст не виден и не озвучивается;
+          // - намеренно скрытые от скринридера дубли (aria-hidden="true" +
+          //   tabindex="-1") — миниатюры подкастов рядом со ссылкой-заголовком.
+          if (!(a as HTMLElement).checkVisibility()) continue;
+          if (a.getAttribute('aria-hidden') === 'true' && a.getAttribute('tabindex') === '-1') continue;
           const name = (
             a.getAttribute('aria-label') ||
             (a as HTMLElement).innerText ||

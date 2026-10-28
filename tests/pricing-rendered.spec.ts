@@ -120,8 +120,7 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
     }
   });
 
-  // Предусловие отдельно: если на немецкой странице нет цен, expected-fail ниже
-  // иначе прошёл бы «ожидаемо» (пустой список не содержит долларов).
+  // Немецкая страница с ценами для посетителя БЕЗ cc_code (страна по IP раннера).
   test('localized /de/pricing/ renders prices (precondition)', async ({ plainPage: page }) => {
     await page.goto('/de/pricing/');
     await settle(page);
@@ -133,12 +132,11 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
     expect(texts.length, 'No rendered price found on /de/pricing/').toBeGreaterThan(0);
   });
 
-  test('localized /de/pricing/ shows prices in the local currency, not USD', async ({ plainPage: page }) => {
-    test.fail(
-      true,
-      'Waiting on the client: the German page shows prices in dollars (10 $, 0,5 $) even though the API returns EUR and 8 other currencies'
-    );
-
+  // Валюта следует за страной посетителя, а не за языком страницы (клиент,
+  // 2026-10-28): CI-раннер в США видит $ и на /de/ — это задумано. Страну
+  // задаёт cookie cc_code (ISO-3166 alpha-3) — ставим DEU и ждём евро.
+  test('/de/pricing/ for a visitor from Germany (cc_code=DEU) shows prices in euros', async ({ plainPage: page }) => {
+    await page.context().addCookies([{ name: 'cc_code', value: 'DEU', domain: '.imagen-ai.com', path: '/' }]);
     await page.goto('/de/pricing/');
     await settle(page);
 
@@ -147,9 +145,8 @@ test.describe('Rendered pricing on /pricing/ (#23)', () => {
         .map((el) => (el.textContent || '').trim())
         .filter((t) => /\d/.test(t))
     );
-    expect(
-      texts.filter((t) => t.includes('$')),
-      'Prices on /de/pricing/ are in dollars, but should be in the page’s local currency'
-    ).toEqual([]);
+    expect(texts.length, 'No rendered price found on /de/pricing/').toBeGreaterThan(0);
+    expect(texts.filter((t) => t.includes('€')).length, `No prices in € on /de/pricing/ for cc_code=DEU: ${JSON.stringify(texts.slice(0, 8))}`).toBeGreaterThan(0);
+    expect(texts.filter((t) => t.includes('$')), 'Prices in $ on /de/pricing/ for a visitor from Germany (cc_code=DEU)').toEqual([]);
   });
 });

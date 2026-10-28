@@ -30,22 +30,22 @@ async function readSnippets(page: import('@playwright/test').Page) {
   return { title: title.trim(), cta: cta.trim() };
 }
 
-// Слаги локалей на сайте — не ISO-коды языков: /br/ — бразильский
-// португальский (а ISO "br" — бретонский), /kr/ — корейский (ISO "ko").
-// Передавать модели голый код нельзя — 2026-10-28 она признала /br/
-// "не тем языком" именно из-за этого.
-const LANGUAGE_NAMES: Record<string, string> = {
-  br: 'Portuguese (Brazil)',
-  es: 'Spanish',
-  kr: 'Korean',
-  fr: 'French',
-  de: 'German',
-  ja: 'Japanese',
-  it: 'Italian',
-};
+// Язык берём из <html lang> самой страницы (pt-BR, ko, ...), а не из папки
+// в URL: слаги сайта — не ISO-коды (/br/ — бразильский португальский, а ISO
+// "br" — бретонский; /kr/ — корейский, ISO "ko"). 2026-10-28 модель по
+// голому "br" признала /br/ "не тем языком" — так попросил и клиент.
+// Название языка добавляем к тегу, чтобы модель не гадала по коду.
+function describeLanguage(langTag: string): string {
+  try {
+    const name = new Intl.DisplayNames(['en'], { type: 'language' }).of(langTag);
+    return name && name !== langTag ? `${name} (${langTag})` : langTag;
+  } catch {
+    return langTag;
+  }
+}
 
-async function askClaude(localeCode: string, pairs: { label: string; en: string; translated: string }[]) {
-  const language = LANGUAGE_NAMES[localeCode] ?? localeCode;
+async function askClaude(langTag: string, pairs: { label: string; en: string; translated: string }[]) {
+  const language = describeLanguage(langTag);
   const prompt =
     `You're reviewing this website's translations into ${language}. For each pair ` +
     `(English original → translation), say whether the translation conveys the same meaning and ` +
@@ -122,7 +122,10 @@ test.describe('Translation review (#13)', () => {
 
       expect(pairs.length, `No text to compare (title/hero button) found on ${locale.path}`).toBeGreaterThan(0);
 
-      const verdicts = await askClaude(locale.code, pairs);
+      const langTag = ((await page.getAttribute('html', 'lang')) || '').trim();
+      expect(langTag, `${locale.path} has no <html lang> attribute`).not.toBe('');
+
+      const verdicts = await askClaude(langTag, pairs);
       verdicts.forEach((v, i) => {
         expect(v.ok, `[${pairs[i].label}] "${pairs[i].translated}" — ${v.reason || "the translation doesn't seem to convey the original's meaning"}`).toBe(true);
       });

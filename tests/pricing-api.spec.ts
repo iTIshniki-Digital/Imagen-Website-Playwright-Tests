@@ -79,30 +79,15 @@ test.describe('Pricing API — schema and sanity per supported currency', () => 
   }
 });
 
-// Клиентская находка (не баг теста): запрос с неподдерживаемой валютой
-// (например XXX) сейчас молча возвращает USD-цены с кодом 200, без ошибки.
-// Это ломает точность валюты — пользователь из, скажем, неподдерживаемой
-// страны увидит доллары и не поймёт, что это фолбэк. Помечено как
-// expected-fail: тест начнёт падать (сигнал убрать пометку), как только
-// клиент это поправит.
-// Предусловие отдельно и без expected-fail: иначе сбой сети внутри помеченного
-// теста выглядел бы как «ожидаемая» находка клиента и не был бы виден.
-test('the API answers both the USD request and the unsupported-currency request', async ({ request }) => {
+// Неподдерживаемая валюта (например XXX) возвращает USD-цены с кодом 200 —
+// клиент подтвердил 2026-10-28, что это задуманный фолбэк, а не баг. Раньше
+// тут стоял expected-fail "должна быть ошибка"; теперь проверяем сам фолбэк:
+// если он сломается (ошибка, пустой ответ, другие цены) — тест покраснеет.
+test('unsupported currency falls back to USD prices (200, same as USD)', async ({ request }) => {
   const usd = await fetchPricing(request, 'USD');
   expect(usd.status, 'USD should respond with 200').toBe(200);
+
   const bogus = await request.get(`${PRICING_API}?currency=XXX`);
-  expect(bogus.status(), 'A request with currency XXX should get an HTTP response').toBeGreaterThan(0);
-});
-
-test('unsupported currency does not silently fall back to USD prices', async ({ request }) => {
-  test.fail(true, 'Client finding: an unsupported currency silently returns USD prices with 200 instead of an error');
-
-  const usd = await fetchPricing(request, 'USD');
-  const bogus = await request.get(`${PRICING_API}?currency=XXX`);
-  const bogusStatus = bogus.status();
-  const bogusBody = bogusStatus === 200 ? JSON.stringify(await bogus.json()) : null;
-
-  const isErrorStatus = bogusStatus >= 400;
-  const isDistinct = bogusBody !== null && bogusBody !== JSON.stringify(usd.body);
-  expect(isErrorStatus || isDistinct, 'XXX should return an error, not USD prices with 200').toBe(true);
+  expect(bogus.status(), 'An unsupported currency (XXX) should still respond with 200').toBe(200);
+  expect(await bogus.json(), 'An unsupported currency (XXX) should return the same prices as USD').toEqual(usd.body);
 });
