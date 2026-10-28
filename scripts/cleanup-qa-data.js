@@ -16,8 +16,15 @@ function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8' });
 }
 
+const ARCHIVE_LABEL = 'qa-archived';
+
 async function main() {
   console.log('=== Issues (qa-bug, qa-run) ===');
+  try {
+    gh(['label', 'create', ARCHIVE_LABEL, '--color', 'cccccc', '--description', 'Removed by QA Cleanup — no longer tracked by the QA pipeline or dashboard', '--force']);
+  } catch (err) {
+    console.warn(`Не удалось создать label ${ARCHIVE_LABEL}: ${err.message}`);
+  }
   await deleteIssuesByLabel('qa-bug');
   await deleteIssuesByLabel('qa-run');
 
@@ -45,13 +52,18 @@ async function deleteIssuesByLabel(label) {
       gh(['issue', 'delete', String(number), '--yes']);
       console.log(`  удалён #${number}`);
     } catch (err) {
-      // Удаление issues иногда отключено на уровне организации — тогда
-      // закрываем как запасной вариант, это тоже убирает их из Open Bugs.
+      // Удаление issues требует админ-прав (у QA_BOT_TOKEN их нет — так и
+      // вышло на живой очистке 2026-10-27). Тогда закрываем И снимаем рабочий
+      // лейбл, вешая qa-archived: иначе publish-qa-dashboard-run.js находит
+      // закрытый issue по qa-check-key и при следующем падении "переоткрывает
+      // как регресс" старый issue со всей старой историей — это не "с чистого
+      // листа". Без qa-bug/qa-run issue не видят ни пайплайн, ни дашборд.
       try {
         gh(['issue', 'close', String(number)]);
-        console.log(`  удалить не вышло, закрыт #${number} (${err.message.split('\n')[0]})`);
+        gh(['issue', 'edit', String(number), '--remove-label', label, '--add-label', ARCHIVE_LABEL]);
+        console.log(`  удалить не вышло, закрыт и перенесён в ${ARCHIVE_LABEL} #${number} (${err.message.split('\n')[0]})`);
       } catch (err2) {
-        console.warn(`  не удалось ни удалить, ни закрыть #${number}: ${err2.message}`);
+        console.warn(`  не удалось ни удалить, ни заархивировать #${number}: ${err2.message}`);
       }
     }
   }

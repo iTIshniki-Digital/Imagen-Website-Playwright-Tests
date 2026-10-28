@@ -61,6 +61,13 @@ export class StepTwoPage extends BasePage {
     // формы. Заполнение полей выше уже съедает часть этого времени, но не
     // надёжно — ждём с запасом, а не полагаемся на случайную задержку.
     await this.page.waitForTimeout(2500);
+    // Скрипт сайта подставляет email из ?user_email= / hero-формы, и в Firefox
+    // иногда успевает сделать это ПОСЛЕ нашего fill() — значение склеивалось
+    // в "a@example.coma@example.com", форма считала его невалидным и не
+    // уходила (2026-10-28). Перепроверяем перед самой отправкой.
+    if ((await this.emailInput.inputValue()) !== email) {
+      await this.emailInput.fill(email);
+    }
     await this.submitButton.click({ force: true });
   }
 }

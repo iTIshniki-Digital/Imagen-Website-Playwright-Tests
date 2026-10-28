@@ -85,21 +85,36 @@ async function main() {
       `(${run.totals.total} всего, ${run.totals.failingChecks.length} упавших проверок)`
   );
 
+  // Каждый этап в своём try/catch: сбой одного (истёк Google-токен, лимит
+  // GitHub API) не должен молча отменять остальные — особенно Slack, который
+  // идёт последним и раньше просто не отправлялся, если что-то упало выше.
   const drive = makeDriveClient();
   if (drive) {
-    await uploadFailureMedia(run, drive);
-    await publishLatestJson(run, drive);
+    try {
+      await uploadFailureMedia(run, drive);
+      await publishLatestJson(run, drive);
+    } catch (err) {
+      console.warn(`Публикация на Drive не удалась: ${err.message}`);
+    }
   } else {
     console.warn('GDRIVE_* не заданы — пропускаю загрузку на Drive (скриншоты/видео/latest.json).');
   }
 
   if (hasGh()) {
-    syncGithubIssues(run);
+    try {
+      syncGithubIssues(run);
+    } catch (err) {
+      console.warn(`Синхронизация issues не удалась: ${err.message}`);
+    }
   } else {
     console.warn('gh CLI/GH_TOKEN недоступны — пропускаю issues.');
   }
 
-  writeJobSummary(run);
+  try {
+    writeJobSummary(run);
+  } catch (err) {
+    console.warn(`Job Summary не записан: ${err.message}`);
+  }
   await notifySlack(run);
 }
 
@@ -460,7 +475,10 @@ function writeJobSummary(run) {
 // SLACK_WEBHOOK_URL просто ничего не отправляет, не ломает остальное.
 async function notifySlack(run) {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (!webhookUrl) return;
+  if (!webhookUrl) {
+    console.warn('SLACK_WEBHOOK_URL не задан — отчёт в Slack не отправляется.');
+    return;
+  }
 
   const t = run.totals;
   const allGood = t.failed === 0;
@@ -515,6 +533,7 @@ async function notifySlack(run) {
       body: JSON.stringify(body),
     });
     if (!res.ok) console.warn(`Slack webhook вернул ${res.status}: ${await res.text()}`);
+    else console.log('Отчёт отправлен в Slack.');
   } catch (err) {
     console.warn(`Не удалось отправить отчёт в Slack: ${err.message}`);
   }

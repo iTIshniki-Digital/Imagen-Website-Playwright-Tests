@@ -24,6 +24,11 @@ const IGNORED_PATTERNS: RegExp[] = [
   // кавычек (браузеры используют разные — прямые/фигурные) и не
   // перечисляем имена всех возможных трекеров.
   /has been rejected for invalid domain/i,
+  // Content-Security-Policy-Report-Only (на сайте с 2026-10-28): браузер
+  // ничего не блокирует, только сообщает о нарушении. WebKit пишет это
+  // как console error с префиксом "[Report Only]", Chromium — "report-only
+  // Content Security Policy". Это сигнал для настройки политики, не поломка.
+  /\[Report Only\]|report-only Content Security Policy/i,
 ];
 
 // Экспортируем — тем же списком фильтруем не только console/network,
@@ -87,8 +92,8 @@ export class BasePage {
    */
   async dismissCookieBanner(): Promise<void> {
     const acceptButton = this.page
-      .getByRole('link', { name: /^accept$/i })
-      .or(this.page.getByRole('button', { name: /^accept$/i }));
+      .getByRole('link', { name: /^accept(\s+all)?$/i })
+      .or(this.page.getByRole('button', { name: /^accept(\s+all)?$/i }));
 
     const visible = await acceptButton.first().isVisible().catch(() => false);
     if (visible) {

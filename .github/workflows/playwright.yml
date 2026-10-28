@@ -99,8 +99,13 @@ jobs:
           args+=("--grep" "$GREP")
         fi
 
+        # Явно в обе стороны: без --retries=0 срабатывал retries из
+        # playwright.config.ts (2 на CI), и галочка "Retry once" в дашборде
+        # на деле означала "1 вместо 2", а не "1 вместо 0".
         if [ "$RETRIES" = "true" ]; then
           args+=("--retries=1")
+        else
+          args+=("--retries=0")
         fi
 
         echo "npx playwright test ${args[*]}"

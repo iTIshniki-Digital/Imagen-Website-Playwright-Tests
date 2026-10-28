@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
-import { advanceQuizStep } from './quizWalker';
+import { advanceQuizStep, QUIZ_SCREEN_SELECTOR } from './quizWalker';
 
 // /questionnaire/ (и /video/questionnaire-2/, см. VideoPage) — тот же
 // виджет, что и /photo-quiz/, просто под классами .vq__screen на видео-
@@ -32,8 +32,15 @@ export class QuestionnairePage extends BasePage {
 
     let answered = 0;
     for (let i = 0; i < maxSteps; i++) {
-      const bodyText = await this.page.locator('body').innerText().catch(() => '');
-      if (stopTextRegex.test(bodyText)) break;
+      // Текст финиша ищем только в текущем видимом экране квиза, а не во
+      // всём body: на странице есть role="status" (live-регион для
+      // скринридеров), и в нём "You're all set" может оказаться ещё до
+      // финала — тогда цикл выходил на первой же итерации с 0 ответов.
+      const screen = this.page.locator(QUIZ_SCREEN_SELECTOR).first();
+      const screenText = (await screen.count())
+        ? await screen.innerText().catch(() => '')
+        : await this.page.locator('main').innerText().catch(() => '');
+      if (stopTextRegex.test(screenText)) break;
 
       const result = await advanceQuizStep(this.page);
       if (result === 'answered') answered++;
