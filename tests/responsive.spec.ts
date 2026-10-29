@@ -25,7 +25,10 @@ test.describe('Responsive layout', () => {
 
       // Скриншот — для ручной визуальной проверки вёрстки человеком
       // (объективные вещи вроде скролла/битых картинок уже проверены выше).
-      await page.screenshot({ path: `test-results/screenshots/homepage-${width}px.png`, fullPage: true });
+      // scale: 'css' — один пиксель картинки на CSS-пиксель: Desktop Safari
+      // рендерит с плотностью 2×, и страница ~17 600px давала ~35 200px —
+      // больше предела WebKit 32 767px для скриншота (клиент, 2026-10-29).
+      await page.screenshot({ path: `test-results/screenshots/homepage-${width}px.png`, fullPage: true, scale: 'css' });
     });
   }
 });

@@ -31,7 +31,11 @@ test.describe('Localized funnel (#12)', () => {
 
       await homePage.continueToStepTwo();
 
+      // После валидного submit сайт уходит на step-2 не сразу, а после
+      // отправки события аналитики (до ~0.5 с, клиент 2026-10-29) — в WebKit
+      // page.url() сразу после клика ещё старый. Ждём переход, потом сверяем.
       const expectedPath = `${path}step-2`;
+      await page.waitForURL((url) => url.pathname.replace(/\/$/, '') === expectedPath, { timeout: 10000 }).catch(() => {});
       expect(
         new URL(page.url()).pathname.replace(/\/$/, ''),
         `Hero button on ${path} didn't lead to ${expectedPath}`
